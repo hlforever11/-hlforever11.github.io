@@ -1,0 +1,10 @@
+{
+  "name": "reference-checker-miniprogram",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "test": "node --test tests/*.test.js",
+    "check": "node --check miniprogram/pages/index/index.js && node --check miniprogram/utils/references.js && node --check cloudfunctions/verifyReference/index.js && node --check cloudfunctions/verifyReference/lib/core.js && node --check cloudfunctions/extractDocument/index.js && npm test"
+  }
+}
+
