@@ -1,0 +1,10 @@
+{
+  "desc": "文证参考文献核验工具",
+  "rules": [
+    {
+      "action": "allow",
+      "page": "pages/index/index"
+    }
+  ]
+}
+
