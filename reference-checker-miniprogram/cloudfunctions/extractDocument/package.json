@@ -1,0 +1,14 @@
+{
+  "name": "extract-reference-document",
+  "version": "1.0.0",
+  "private": true,
+  "main": "index.js",
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "iconv-lite": "0.7.0",
+    "mammoth": "1.12.0",
+    "pdf-parse": "1.1.1"
+  }
+}
