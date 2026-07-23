@@ -1,0 +1,44 @@
+<view class="privacy-page">
+  <view class="privacy-title">隐私说明</view>
+  <view class="updated">更新日期：2026年7月23日</view>
+
+  <view class="privacy-card">
+    <view class="item-title">1. 无需登录</view>
+    <view class="item-copy">
+      本小程序不要求用户注册或登录，不主动收集姓名、手机号、通讯录、地理位置等身份信息，也不建立用户参考文献数据库。
+    </view>
+  </view>
+
+  <view class="privacy-card">
+    <view class="item-title">2. 粘贴内容的处理</view>
+    <view class="item-copy">
+      用户提交核验后，参考文献的必要书目信息会发送至云端核验函数，并可能查询 Crossref、OpenAlex、Semantic Scholar、DOI 注册元数据或文献所附的原始网页。处理结果返回后，不在本小程序数据库中保存所提交的参考文献。
+    </view>
+  </view>
+
+  <view class="privacy-card">
+    <view class="item-title">3. 文档导入</view>
+    <view class="item-copy">
+      TXT 文件在用户设备本地读取。DOCX 与文字版 PDF 会临时上传至小程序云存储，用于提取参考文献；解析完成或失败后，小程序会立即请求删除临时文件。请勿上传含有与参考文献无关的敏感或涉密内容。
+    </view>
+  </view>
+
+  <view class="privacy-card">
+    <view class="item-title">4. 剪贴板</view>
+    <view class="item-copy">
+      只有用户主动点击“复制”按钮时，小程序才会把核验链接或建议著录写入系统剪贴板。
+    </view>
+  </view>
+
+  <view class="privacy-card">
+    <view class="item-title">5. 联系方式</view>
+    <view class="item-copy">
+      如对数据处理或本说明有疑问，可联系：linhu@scu.edu.cn
+    </view>
+  </view>
+
+  <view class="privacy-note">
+    本工具用于辅助核验，不替代出版者原始记录或专业数据库。
+  </view>
+</view>
+
