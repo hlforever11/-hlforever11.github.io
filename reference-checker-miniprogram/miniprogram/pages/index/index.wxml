@@ -1,0 +1,143 @@
+<view class="page-shell">
+  <view class="hero">
+    <view class="eyebrow">
+      <view class="rule"></view>
+      <text>Evidence before confidence</text>
+      <view class="rule"></view>
+    </view>
+    <view class="hero-title">
+      <text>让每一条参考文献</text>
+      <text>都经得起核验</text>
+    </view>
+    <view class="hero-copy">
+      粘贴或导入最多 20 条中英文参考文献，核对其真实性与著录准确性。
+    </view>
+  </view>
+
+  <view class="card workspace">
+    <view class="workspace-head">
+      <view>
+        <view class="section-title">提交参考文献</view>
+        <view class="section-copy">支持不规范著录和多条连续粘贴</view>
+      </view>
+      <button class="button-quiet sample-button" size="mini" bindtap="fillSample" disabled="{{loading}}">填入示例</button>
+    </view>
+
+    <textarea
+      class="reference-input"
+      value="{{inputValue}}"
+      maxlength="-1"
+      placeholder="例如：&#10;[1] 作者. 篇名[J]. 刊名, 2024, 12(3):20-28.&#10;[2] Author. (2023). Title. Journal, 8(2), 10–19."
+      placeholder-class="input-placeholder"
+      bindinput="onInput"
+      disabled="{{loading}}"
+    ></textarea>
+
+    <view class="input-actions">
+      <view class="counter {{count > maxReferences ? 'counter-over' : ''}}">
+        <text class="counter-value">{{count}}</text>
+        <text> / {{maxReferences}}</text>
+      </view>
+      <view class="action-buttons">
+        <button class="button-secondary clear-button" bindtap="clearInput" disabled="{{!inputValue || loading}}">清空</button>
+        <button class="button-primary verify-button" bindtap="verifyAll" loading="{{loading}}" disabled="{{!canVerify}}">
+          {{loading ? "核验中" : "开始核验"}}
+        </button>
+      </view>
+    </view>
+
+    <view class="divider">
+      <view></view>
+      <text>或者导入文档</text>
+      <view></view>
+    </view>
+
+    <view class="upload" bindtap="chooseDocument">
+      <view class="upload-icon">↑</view>
+      <view class="upload-copy">
+        <view class="upload-title">从微信聊天中选择文件</view>
+        <view class="upload-description">TXT · DOCX · 文字版 PDF，最大 10 MB</view>
+      </view>
+      <view class="upload-arrow">›</view>
+    </view>
+    <view wx:if="{{fileMessage}}" class="file-message file-{{fileMessageType}}">{{fileMessage}}</view>
+    <view class="privacy-note">文档仅用于提取参考文献，云端处理后立即删除。</view>
+  </view>
+
+  <view class="trust-row">
+    <view><text>✓</text> 未收录不直接判为虚假</view>
+    <view><text>✓</text> 中文期刊与网络文献增强核验</view>
+  </view>
+
+  <view wx:if="{{showResults}}" class="results" id="results">
+    <view class="results-head">
+      <view class="section-title">核验结果</view>
+      <view class="progress">{{progressText}}</view>
+    </view>
+
+    <view class="summary-grid">
+      <view class="summary-item" wx:for="{{summary}}" wx:key="label">
+        <view class="summary-value">{{item.value}}</view>
+        <view class="summary-label">{{item.label}}</view>
+      </view>
+    </view>
+
+    <view
+      class="card result-card"
+      wx:for="{{results}}"
+      wx:key="displayIndex"
+      wx:for-item="result"
+    >
+      <view class="result-head">
+        <view class="status status-{{result.status}}">
+          <text class="status-mark">{{result.statusMark}}</text>
+          <text>{{result.statusLabel}}</text>
+        </view>
+        <view class="confidence">第 {{result.displayIndex}} 条 · {{result.confidencePercent}}%</view>
+      </view>
+
+      <view class="submitted">{{result.submitted}}</view>
+      <view class="result-note">{{result.note}}</view>
+
+      <view wx:if="{{result.differences.length}}" class="differences">
+        <view class="difference" wx:for="{{result.differences}}" wx:key="field" wx:for-item="difference">
+          <view class="difference-field">{{difference.field}}</view>
+          <view class="difference-value"><text>提交：</text>{{difference.submitted}}</view>
+          <view class="difference-value verified-value"><text>核实：</text>{{difference.verified}}</view>
+        </view>
+      </view>
+
+      <view wx:if="{{result.canonical}}" class="canonical">
+        <view class="canonical-label">建议著录（GB/T 7714 风格）</view>
+        <view>{{result.canonical}}</view>
+        <button class="copy-citation" size="mini" data-citation="{{result.canonical}}" bindtap="copyCitation">复制</button>
+      </view>
+
+      <view wx:if="{{result.links.length}}" class="result-links">
+        <button
+          class="source-button"
+          size="mini"
+          wx:for="{{result.links}}"
+          wx:key="url"
+          wx:for-item="link"
+          data-url="{{link.url}}"
+          bindtap="copyUrl"
+        >{{link.label}}</button>
+      </view>
+    </view>
+  </view>
+
+  <view class="limits">
+    <view class="limits-kicker">BOUNDARIES</view>
+    <view class="limits-title">“未核实”不等于“虚假”</view>
+    <view class="limits-copy">
+      系统会核对开放学术数据库、DOI 元数据和网络原始页面。若来源暂时不可访问或未被数据库收录，只会标记为“暂未核实”，并提供继续复核的线索。
+    </view>
+  </view>
+
+  <view class="footer">
+    <view>重要用途请以出版者或原始网页记录为准</view>
+    <navigator class="privacy-link" url="/pages/privacy/privacy">隐私说明</navigator>
+    <view class="footer-email">linhu@scu.edu.cn</view>
+  </view>
+</view>
