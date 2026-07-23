@@ -1,0 +1,5 @@
+node_modules/
+project.private.config.json
+private.*.key
+.DS_Store
+
