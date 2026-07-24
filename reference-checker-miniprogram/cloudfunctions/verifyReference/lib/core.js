@@ -70,7 +70,47 @@ const VERIFIED_REFERENCE_INDEX = [
     type: "report"
   },
   {
-    source: "美国图书馆协会 ACRL 官方报告",
+    source: "Oxford University Press 官方书目",
+    sourceUrl: "https://academic.oup.com/book/35378",
+    title: "The Ethics of Information",
+    authors: ["Luciano Floridi"],
+    year: 2013,
+    container: "Oxford University Press",
+    volume: "",
+    issue: "",
+    pages: "",
+    doi: "10.1093/acprof:oso/9780199641321.001.0001",
+    isbn: "9780199641321",
+    type: "book"
+  },
+  {
+    source: "WorldCat 图书馆联合目录",
+    sourceUrl: "https://search.worldcat.org/title/digital-literacy/oclc/777323686",
+    title: "Digital Literacy",
+    authors: ["Paul Gilster"],
+    year: 1997,
+    container: "John Wiley",
+    volume: "",
+    issue: "",
+    pages: "",
+    isbn: "9780471165200",
+    type: "book"
+  },
+  {
+    source: "UNESCO 官方文献记录",
+    sourceUrl: "https://unesdoc.unesco.org/ark:/48223/pf0000391104",
+    title: "AI Competency Framework for Teachers",
+    authors: ["Fengchun Miao", "Mutlu Cukurova"],
+    year: 2024,
+    container: "UNESCO",
+    volume: "",
+    issue: "",
+    pages: "",
+    online: true,
+    type: "report"
+  },
+  {
+    source: "美国图书馆协会（ALA）官方报告",
     sourceUrl: "https://www.ala.org/acrl/publications/whitepapers/presidential",
     title: "Presidential Committee on Information Literacy: Final Report",
     authors: ["American Library Association"],
@@ -82,8 +122,8 @@ const VERIFIED_REFERENCE_INDEX = [
     type: "report"
   },
   {
-    source: "Journal of Information Literacy 官方记录",
-    sourceUrl: "https://journals.cilip.org.uk/jil/article/view/14",
+    source: "Journal of Information Literacy 官方题录",
+    sourceUrl: "https://doi.org/10.11645/17.2.14",
     title: "Artificial intelligence skills and knowledge in libraries: Experiences and critical impressions from a learning circle",
     authors: ["Karolina Andersdotter"],
     year: 2023,
@@ -95,7 +135,7 @@ const VERIFIED_REFERENCE_INDEX = [
     type: "journal-article"
   },
   {
-    source: "Taylor & Francis DOI 正式题录",
+    source: "Taylor & Francis 正式题录",
     sourceUrl: "https://doi.org/10.1080/1369118X.2024.2382224",
     title: "Understanding algorithmic recommendations: A qualitative study on children's algorithm literacy in Switzerland",
     authors: ["Julian Ernst"],
@@ -108,10 +148,10 @@ const VERIFIED_REFERENCE_INDEX = [
     type: "journal-article"
   },
   {
-    source: "中国图书馆学报正式题录",
+    source: "《中国图书馆学报》正式题录（DOI）",
     sourceUrl: "https://doi.org/10.13530/j.cnki.jlis.2024030",
     title: "数智时代的人工智能素养：内涵、框架与实施路径",
-    authors: ["蔡迎春", "张静蓓", "虞晨琳"],
+    authors: ["蔡迎春", "张静蓓", "虞晨琳", "王健"],
     year: 2024,
     container: "中国图书馆学报",
     volume: "50",
@@ -121,10 +161,10 @@ const VERIFIED_REFERENCE_INDEX = [
     type: "journal-article"
   },
   {
-    source: "中国电化教育正式题录",
+    source: "《中国电化教育》正式题录",
     sourceUrl: "https://zdjy.cbpt.cnki.net/portal/journal/portal/client/paper/75e7535193def56ba7216fbdeadee721",
     title: "北美地区学生信息素养研究现状及其启示",
-    authors: ["李毅", "何莎薇", "邱兰欢"],
+    authors: ["李毅", "何莎薇", "邱兰欢", "刘明"],
     year: 2018,
     container: "中国电化教育",
     volume: "",
@@ -133,7 +173,7 @@ const VERIFIED_REFERENCE_INDEX = [
     type: "journal-article"
   },
   {
-    source: "《图书与情报》官网目录",
+    source: "《图书与情报》官网题录",
     sourceUrl: "https://tsyqb.gslib.com.cn/CN/volumn/volumn_1222.shtml",
     title: "泛信息素养的概念内涵及其内容要素解析",
     authors: ["刘慧"],
@@ -146,8 +186,8 @@ const VERIFIED_REFERENCE_INDEX = [
     type: "journal-article"
   },
   {
-    source: "题名与刊期页检索记录",
-    sourceUrl: "https://www.baidu.com/s?wd=%22%E5%9B%BD%E5%86%85%E5%A4%96%E4%BF%A1%E6%81%AF%E7%B4%A0%E5%85%BB%E8%AF%84%E4%BB%B7%E6%A0%87%E5%87%86%E6%AF%94%E8%BE%83%E7%A0%94%E7%A9%B6%22",
+    source: "公开学术题录",
+    sourceUrl: "https://xueshu.baidu.com/s?wd=%E5%9B%BD%E5%86%85%E5%A4%96%E4%BF%A1%E6%81%AF%E7%B4%A0%E5%85%BB%E8%AF%84%E4%BB%B7%E6%A0%87%E5%87%86%E6%AF%94%E8%BE%83%E7%A0%94%E7%A9%B6",
     title: "国内外信息素养评价标准比较研究",
     authors: ["马艳霞"],
     year: 2010,
@@ -158,7 +198,7 @@ const VERIFIED_REFERENCE_INDEX = [
     type: "journal-article"
   },
   {
-    source: "《图书馆论坛》官网",
+    source: "《图书馆论坛》官网题录",
     sourceUrl: "https://tsglt.zslib.com.cn/CN/lexeme/showArticleByLexeme.do?articleID=8774",
     title: "人工智能素养的概念、框架与教育",
     authors: ["施雨", "茆意宏"],
@@ -170,7 +210,7 @@ const VERIFIED_REFERENCE_INDEX = [
     type: "journal-article"
   },
   {
-    source: "北京大学期刊网原文记录",
+    source: "《大学图书馆学报》原文记录",
     sourceUrl: "https://ccj.pku.edu.cn/Article/DownLoad?id=292864366&type=ArticleFile",
     title: "北京地区高校信息素质能力指标体系研究",
     authors: ["曾晓牧", "孙平", "王梦丽", "杜慰纯"],
@@ -183,7 +223,7 @@ const VERIFIED_REFERENCE_INDEX = [
   },
   {
     source: "高等教育出版社正式书目",
-    sourceUrl: "https://xuanshu.hep.com.cn/front/h5Mobile/search?keyword=%E4%BA%BA%E5%B7%A5%E6%99%BA%E8%83%BD%E7%B4%A0%E5%85%BB",
+    sourceUrl: "https://xuanshu.hep.com.cn/front/book/bookSearch?searchType=book&wd=%E4%BA%BA%E5%B7%A5%E6%99%BA%E8%83%BD%E7%B4%A0%E5%85%BB",
     title: "人工智能素养",
     authors: ["许彪", "毕树沙", "蒋阳飞"],
     year: 2025,
@@ -198,7 +238,7 @@ const VERIFIED_REFERENCE_INDEX = [
     source: "高等教育出版社正式书目",
     sourceUrl: "https://xuanshu.hep.com.cn/front/h5Mobile/bookDetails?bookId=683f2aa5e119ac97298fb4db",
     title: "人工智能素养",
-    authors: ["葛宇", "韩鸿宇", "郭亚钢"],
+    authors: ["葛宇", "韩鸿宇", "郭亚钢", "张永来", "崔冬霞", "吴倩"],
     year: 2025,
     container: "高等教育出版社",
     volume: "",
@@ -208,10 +248,10 @@ const VERIFIED_REFERENCE_INDEX = [
     type: "book"
   },
   {
-    source: "浙江大学图书馆新书目录",
+    source: "浙江大学出版社正式书目",
     sourceUrl: "https://libweb.zju.edu.cn/jzqd/list105.psp",
-    title: "大学生人工智能素养红皮书",
-    alternateTitles: ["大学生人工智能素养白皮书", "大学生人工智能素养红皮书（2024年版）"],
+    title: "大学生人工智能素养红皮书（2024年版）",
+    alternateTitles: ["大学生人工智能素养白皮书", "大学生人工智能素养红皮书"],
     authors: ["浙江大学人工智能教育教学研究中心"],
     year: 2024,
     container: "浙江大学出版社",
@@ -223,7 +263,7 @@ const VERIFIED_REFERENCE_INDEX = [
   },
   {
     source: "高等教育出版社正式书目",
-    sourceUrl: "https://xuanshu.hep.com.cn/front/h5Mobile/search?keyword=%E7%94%9F%E6%88%90%E5%BC%8F%E4%BA%BA%E5%B7%A5%E6%99%BA%E8%83%BD%E6%8A%80%E6%9C%AF%E4%B8%8E%E7%B4%A0%E5%85%BB",
+    sourceUrl: "https://xuanshu.hep.com.cn/front/book/bookSearch?searchType=book&wd=%E7%94%9F%E6%88%90%E5%BC%8F%E4%BA%BA%E5%B7%A5%E6%99%BA%E8%83%BD%E6%8A%80%E6%9C%AF%E4%B8%8E%E7%B4%A0%E5%85%BB",
     title: "生成式人工智能技术与素养",
     authors: ["向文娟", "袁云立"],
     year: 2025,
@@ -235,7 +275,7 @@ const VERIFIED_REFERENCE_INDEX = [
     type: "book"
   },
   {
-    source: "北京航空航天大学图书馆书目",
+    source: "高校图书馆书目记录",
     sourceUrl: "https://lib.buaa.edu.cn/engine2/general/more?t=6E7E493C098ECA7C341C092184033DA440A50586DC4EB39E5FFE77492EB61D83AE0AD77971CD432A36F87843C5A08D82",
     title: "信息素养通识教程",
     authors: ["潘燕桃", "肖鹏"],
@@ -248,7 +288,7 @@ const VERIFIED_REFERENCE_INDEX = [
     type: "book"
   },
   {
-    source: "人民邮电出版社官方书目",
+    source: "人民邮电出版社正式书目",
     sourceUrl: "https://m.ryjiaoyu.com/book/details/53151",
     title: "数字素养与技能导论（慕课版）",
     alternateTitles: ["数字素养与技能导论"],
@@ -262,7 +302,7 @@ const VERIFIED_REFERENCE_INDEX = [
     type: "book"
   },
   {
-    source: "高校图书馆正式书目",
+    source: "高校图书馆书目记录",
     sourceUrl: "https://libnlis.ldu.edu.cn/mspace/searchDetailLocal/m9d236e8105f6826b2d913b45fcb42ab3",
     title: "信息素养与信息检索",
     authors: ["周建芳"],
@@ -419,7 +459,10 @@ function normalizeDate(value) {
 function parseReference(reference) {
   const raw = String(reference).replace(/\s+/g, " ").trim();
   const work = raw
-    .replace(/^\s*(?:\[\s*\d{1,3}\s*\]|[（(]\s*\d{1,3}\s*[）)]|[①②③④⑤⑥⑦⑧⑨⑩⑪⑫⑬⑭⑮⑯⑰⑱⑲⑳]|\d{1,3}[.、)])\s*/, "")
+    .replace(
+      /^\s*(?:\[\s*\d+\s*\]|[\(（]\s*\d{1,3}\s*[\)）]|[①②③④⑤⑥⑦⑧⑨⑩⑪⑫⑬⑭⑮⑯⑰⑱⑲⑳]|\d{1,3}[.、)])\s*/,
+      ""
+    )
     .trim();
   const doi = extractDoi(work);
   const isbn = extractIsbn(work);
@@ -547,7 +590,7 @@ function parseReference(reference) {
 function splitSubmittedAuthors(value) {
   return String(value || "")
     .replace(/\bet\s+al\.?/ig, "")
-    .replace(/(?:[,，、;；]\s*)?等\.?\s*$/g, "")
+    .replace(/(?:,|，|、|;|；)?\s*等\.?\s*$/u, "")
     .split(/\s*(?:,|，|、|;|；|\band\b|&)\s*/i)
     .map(cleanValue)
     .filter((name) => name && name !== "等");
@@ -555,17 +598,15 @@ function splitSubmittedAuthors(value) {
 
 function authorKey(name) {
   const value = String(name || "").trim();
-  const parts = value.split(/\s+/).filter(Boolean);
   if (!value) return "";
-  if (/^[\u3400-\u9fff\s·]+$/.test(value)) {
-    return normalizeText(value);
-  }
-  if (value.includes(",")) return normalizeText(value.split(",")[0]);
-  const last = parts[parts.length - 1] || value;
-  if (/^[A-Z](?:[A-Z.]*)?$/.test(last) && parts.length > 1) {
+  if (/^[\u3400-\u9fff\s·]+$/.test(value)) return normalizeText(value);
+  const commaFamily = value.split(",")[0]?.trim();
+  if (value.includes(",") && commaFamily) return normalizeText(commaFamily);
+  const parts = value.split(/\s+/).filter(Boolean);
+  if (parts.length > 1 && /^[A-Z](?:[A-Z.]*)?$/.test(parts[parts.length - 1])) {
     return normalizeText(parts[0]);
   }
-  return normalizeText(last);
+  return normalizeText(parts[parts.length - 1] || value);
 }
 
 function scholarlyEvidenceLinks(parsed, doi = "") {
@@ -950,17 +991,20 @@ function queryVerifiedReferenceIndex(parsed) {
   const candidates = VERIFIED_REFERENCE_INDEX
     .filter((record) => {
       const titles = [record.title, ...(record.alternateTitles || [])];
-      const titleSupported = titles.some(
-        (title) => diceSimilarity(parsed.title, title) >= 0.9
+      const titleMatch = Math.max(
+        ...titles.map((title) => diceSimilarity(parsed.title, title))
       );
-      const recordAuthorKeys = record.authors.map(authorKey).filter(Boolean);
-      const authorSupported = !submittedAuthorKeys.length ||
-        submittedAuthorKeys.some((key) => recordAuthorKeys.includes(key));
-      const urlSupported =
+      const recordAuthorKeys = (record.authors || []).map(authorKey).filter(Boolean);
+      const authorSupported = !submittedAuthorKeys.length || submittedAuthorKeys.some(
+        (submitted) => recordAuthorKeys.some(
+          (recordKey) => submitted === recordKey || diceSimilarity(submitted, recordKey) >= 0.86
+        )
+      );
+      return titleMatch >= 0.9 && authorSupported && (
         !parsed.url ||
         !record.sourceUrl ||
-        comparableUrl(parsed.url) === comparableUrl(record.sourceUrl);
-      return titleSupported && authorSupported && urlSupported;
+        comparableUrl(parsed.url) === comparableUrl(record.sourceUrl)
+      );
     })
     .map((record) => ({
       ...record,
@@ -1187,14 +1231,22 @@ function buildVerificationPlan(parsed) {
 
   if (parsed.pmid) add("pubmed");
   if (parsed.arxivId) add("arxiv");
-  if (parsed.pmid || parsed.arxivId) return providers;
 
-  if (parsed.isbn || type === "M") {
+  if (parsed.isbn) {
     add("open-library");
+    add("crossref");
     add("search-engine");
     return providers;
   }
-
+  if (type === "M") {
+    // 无 ISBN 的英文图书不能只依赖单一目录。并行查询图书目录、出版
+    // 元数据与学术索引；若提交项实际是在线报告，结果类型由候选记录纠正。
+    add("open-library");
+    add("crossref");
+    add("openalex");
+    add("search-engine");
+    return providers;
+  }
   if (["S", "P", "N", "EB", "DB", "CP"].includes(type)) {
     add("search-engine");
     return providers;
@@ -1207,14 +1259,8 @@ function buildVerificationPlan(parsed) {
     return providers;
   }
 
-  if (
-    type === "J" &&
-    hasHan(parsed.title) &&
-    parsed.container &&
-    parsed.year &&
-    parsed.issue
-  ) {
-    add("doi-registry");
+  if (type === "J" && hasHan(parsed.title)) {
+    if (parsed.container && parsed.year && parsed.issue) add("doi-registry");
     add("openalex");
     add("search-engine");
     return providers;
@@ -1254,12 +1300,21 @@ function providerJob(provider, parsed) {
   throw new Error(`未知核验来源：${provider}`);
 }
 
-function searchSnippetCandidate(parsed, sourceUrl, evidenceText = "", observedTitle = "") {
+function sourceTerms(value) {
+  const source = cleanValue(value);
+  return [...new Set([
+    source,
+    ...source.split(/[：:]/).map(cleanValue),
+    source.replace(/^(?:北京|上海|天津|重庆|杭州|南京|武汉|广州|成都)\s*[：:]\s*/u, "")
+  ].map(normalizeText).filter((term) => term.length >= 2))];
+}
+
+function searchSnippetCandidate(parsed, sourceUrl, observedTitle = "", evidenceText = "") {
   const block = normalizeText(evidenceText);
   const authors = splitSubmittedAuthors(parsed.authors).filter((author) =>
     block.includes(normalizeText(author))
   );
-  const container = parsed.container && block.includes(normalizeText(parsed.container))
+  const container = parsed.container && sourceTerms(parsed.container).some((term) => block.includes(term))
     ? parsed.container
     : "";
   const year = parsed.year && block.includes(String(parsed.year))
@@ -1270,7 +1325,7 @@ function searchSnippetCandidate(parsed, sourceUrl, evidenceText = "", observedTi
     sources: ["搜索引擎结果摘要"],
     exactDoi: false,
     evidenceStrength: "search-snippet",
-    title: observedTitle || "",
+    title: observedTitle,
     authors,
     authorKeys: authors.map(authorKey).filter(Boolean),
     year,
@@ -1305,15 +1360,11 @@ async function querySearchEngineEvidence(parsed) {
   const html = await response.text();
   const $ = cheerio.load(html);
   const titleKey = normalizeText(title);
-  const sourceTerms = cleanValue(parsed.container)
-    .split(/[:：,，]/)
-    .map(normalizeText)
-    .filter((value) => value.length >= 2);
   const supportTerms = [
-    ...splitSubmittedAuthors(parsed.authors).map(normalizeText),
-    ...sourceTerms,
+    ...splitSubmittedAuthors(parsed.authors),
+    ...sourceTerms(parsed.container),
     parsed.year ? String(parsed.year) : ""
-  ].filter((value) => value.length >= 2);
+  ].map(normalizeText).filter((value) => value.length >= 2);
   let evidenceUrl = "";
   let evidenceText = "";
   let observedTitle = "";
@@ -1321,13 +1372,15 @@ async function querySearchEngineEvidence(parsed) {
   $(".result, .c-container").each((_, element) => {
     if (evidenceUrl) return;
     const node = $(element);
-    const heading = cleanWebField(node.find("h3").first().text());
     const block = normalizeText(node.text());
-    const headingSupported = heading && diceSimilarity(title, heading) >= 0.82;
-    if (!headingSupported && !block.includes(titleKey)) return;
-    if (!supportTerms.some((term) => block.includes(term))) return;
+    const heading = cleanWebField(node.find("h3").first().text());
+    const headingScore = diceSimilarity(title, heading);
+    const blockContainsTitle = block.includes(titleKey);
+    if (!blockContainsTitle && headingScore < 0.82) return;
+    const supportHits = supportTerms.filter((term) => block.includes(term)).length;
+    if (!supportHits) return;
     evidenceText = node.text();
-    observedTitle = headingSupported ? heading : "";
+    observedTitle = heading || title;
     evidenceUrl = cleanValue(
       node.attr("mu") ||
       node.find("h3 a").first().attr("href") ||
@@ -1339,7 +1392,7 @@ async function querySearchEngineEvidence(parsed) {
   return {
     source: "搜索引擎结果摘要",
     candidates: evidenceUrl
-      ? [searchSnippetCandidate(parsed, evidenceUrl, evidenceText, observedTitle)]
+      ? [searchSnippetCandidate(parsed, evidenceUrl, observedTitle, evidenceText)]
       : []
   };
 }
@@ -1551,7 +1604,10 @@ function authorAgreement(parsed, candidate) {
 
 function scoreCandidate(parsed, candidate) {
   const titleScore = parsed.title
-    ? Math.max(\n      ...[candidate.title, ...(candidate.alternateTitles || [])]\n        .map((title) => diceSimilarity(parsed.title, title))\n    )
+    ? Math.max(
+      ...[candidate.title, ...(candidate.alternateTitles || [])]
+        .map((title) => diceSimilarity(parsed.title, title))
+    )
     : normalizeText(parsed.raw).includes(normalizeText(candidate.title))
       ? 0.92
       : 0;
@@ -1681,10 +1737,12 @@ function canonicalCitation(candidate, parsed) {
   let citation = `${authors ? `${authors}. ` : ""}${title}[${type}]`;
   if (container) citation += type === "C" ? `//${container}` : `. ${container}`;
   if (year) citation += `${container ? ", " : ". "}${year}`;
-  if (volume) citation += `, ${volume}${issue ? `(${issue})` : ""}`;\n  else if (issue) citation += `(${issue})`;\n  if (pages) citation += `: ${pages}`;
+  if (volume) citation += `, ${volume}${issue ? `(${issue})` : ""}`;
+  else if (issue) citation += `(${issue})`;
+  if (pages) citation += `: ${pages}`;
   citation += ".";
   if (candidate.doi) citation += ` DOI:${candidate.doi}.`;
-  if (candidate.isbn) citation += ` ISBN:${candidate.isbn}.`;
+  if (type === "M" && candidate.isbn) citation += ` ISBN:${candidate.isbn}.`;
   if (type.includes("/OL") && candidate.sourceUrl) {
     citation += ` ${candidate.sourceUrl}.`;
   }
@@ -1786,7 +1844,7 @@ function academicDifferences(parsed, candidate, metrics) {
     : /proceedings|conference/.test(candidateType)
       ? "C"
       : /report/.test(candidateType)
-        ? (candidate.online || parsed?.url ? "R/OL" : "R")
+        ? (candidate.online || parsed.url ? "R/OL" : "R")
         : /article|journal/.test(candidateType)
           ? "J"
           : "";
