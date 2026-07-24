@@ -6,6 +6,7 @@ const {
   parseReference,
   buildVerificationPlan
 } = require("../cloudfunctions/verifyReference/lib/core");
+const { splitReferences } = require("../miniprogram/utils/references");
 
 const originalFetch = global.fetch;
 const originalLookup = dns.lookup;
@@ -354,4 +355,63 @@ test("网页核验拒绝访问私网和本机地址", async () => {
   );
   assert.equal(result.status, "unverified");
   assert.match(result.note, /非公开网络地址/);
+});
+
+
+test("中英文报告、期刊与中文图书可确认真实性并把题录差异单独纠正", async () => {
+  global.fetch = async () => {
+    throw new Error("已核对权威记录不应依赖外部请求");
+  };
+
+  const references = [
+    "[1] American Library Association. Presidential Committee on Information Literacy: Final Report[R]. Chicago: American Library Association, 1989.",
+    "[2] Andersdotter K. Artificial intelligence skills and knowledge in libraries: Experiences and critical impressions from a learning circle[J]. Journal of Information Literacy, 2023, 17(3): 108–130.",
+    "[7] Ernst J. Understanding algorithmic recommendations: A qualitative study on children's algorithm literacy in Switzerland[J/OL]. Information Communication & Society, 2024.",
+    "[15] 蔡迎春, 张静蓓, 虞晨琳, 等. 数智时代的人工智能素养：内涵、框架与实施路径[J]. 图书情报知识, 2024, 50(4): 71–84.",
+    "[16] 李毅, 何莎薇, 邱兰欢, 等. 北美地区学生信息素养研究现状及其启示[J]. 中国电化教育, 2018(8): 67–72.",
+    "[17] 刘慧. 泛信息素养的概念内涵及其内容要素解析[J]. 图书与情报, 2020(4): 67–73.",
+    "[18] 马艳霞. 国内外信息素养评价标准比较研究[J]. 图书馆学研究, 2010(2): 85–92.",
+    "[19] 施雨, 茆意宏. 人工智能素养的概念、框架与教育[J]. 图书馆论坛, 2024, 44(11): 90–100.",
+    "[22] 曾晓牧, 孙平, 王梦丽, 等. 北京地区高校信息素质能力指标体系研究[J]. 大学图书馆学报, 2006(3): 64–67.",
+    "（1）许彪. 人工智能素养[M]. 北京：高等教育出版社，2025.",
+    "（2）葛宇，等. 人工智能素养[M]. 北京：高等教育出版社，2025.",
+    "（3）浙江大学人工智能教育教学研究中心. 大学生人工智能素养白皮书[M]. 2024版. 杭州：浙江大学出版社，2024.",
+    "（4）向文娟. 生成式人工智能技术与素养[M]. 北京：高等教育出版社，2025.",
+    "（4）潘燕桃. 信息素养通识教程[M]. 北京：高等教育出版社，2019.",
+    "（5）黄如花. 数字素养与技能导论[M]. 北京：人民邮电出版社，2025.",
+    "（6）周建芳. 信息素养与信息检索[M]. 北京：科学出版社，2021."
+  ];
+
+  const results = [];
+  for (const reference of references) results.push(await verifyReference(reference));
+
+  assert.equal(results.length, 16);
+  results.forEach((result) => {
+    assert.ok(["verified", "partial", "corrected"].includes(result.status), result.submitted);
+    assert.ok(result.confidence >= 0.8, result.submitted);
+    assert.ok(result.sourceUrl, result.submitted);
+  });
+
+  const andersdotter = results[1];
+  assert.ok(andersdotter.differences.some((item) => item.field === "期号"));
+  assert.ok(andersdotter.differences.some((item) => item.field === "页码"));
+
+  const cai = results[3];
+  assert.ok(cai.differences.some((item) => item.field === "刊名/来源"));
+
+  const redBook = results[11];
+  assert.ok(redBook.differences.some((item) => item.field === "篇名"));
+
+  assert.match(results[9].canonical, /9787040658194/);
+  assert.match(results[10].canonical, /9787040650068/);
+});
+
+test("中英文括号、方括号和圈号编号均可拆分为独立参考文献", () => {
+  const list = splitReferences(
+    "（1）许彪. 人工智能素养[M]. 北京：高等教育出版社，2025. " +
+    "（2）葛宇，等. 人工智能素养[M]. 北京：高等教育出版社，2025. " +
+    "[3] American Library Association. Presidential Committee on Information Literacy: Final Report[R]. Chicago: American Library Association, 1989. " +
+    "④周建芳. 信息素养与信息检索[M]. 北京：科学出版社，2021."
+  );
+  assert.equal(list.length, 4);
 });
