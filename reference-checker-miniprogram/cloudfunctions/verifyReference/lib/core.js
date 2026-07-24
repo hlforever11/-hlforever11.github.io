@@ -112,6 +112,45 @@ function extractDoi(text) {
   return doi.toLowerCase();
 }
 
+function extractIsbn(text) {
+  const source = String(text || "");
+  const labeled = source.match(/\bISBN(?:-1[03])?\s*[:：]?\s*((?:97[89][\s-]?)?[\dXx][\dXx\s-]{8,20})/i);
+  const compactCandidate = labeled?.[1] ||
+    source.match(/\b(97[89][\s-]?\d[\d\s-]{10,18}\d)\b/)?.[1] ||
+    "";
+  const compact = compactCandidate.replace(/[\s-]/g, "").toUpperCase();
+  return /^(?:\d{9}[\dX]|\d{13})$/.test(compact) ? compact : "";
+}
+
+function extractPmid(text) {
+  return String(text || "").match(/\bPMID\s*[:：]?\s*(\d{4,10})\b/i)?.[1] || "";
+}
+
+function extractArxivId(text) {
+  const source = String(text || "");
+  const match = source.match(
+    /(?:\barXiv\s*[:：]\s*|arxiv\.org\/(?:abs|pdf)\/)(\d{4}\.\d{4,5})(?:v\d+)?/i
+  );
+  return match?.[1] || "";
+}
+
+function extractStandardNumber(text) {
+  const match = String(text || "").match(
+    /\b((?:GB\/T|GB|ISO|IEC|IEEE|ISO\/IEC|YY\/T|WS\/T|HG\/T|JB\/T)\s*\d+(?:\.\d+)*(?:-\d{4})?)\b/i
+  );
+  return cleanValue(match?.[1] || "").replace(/\s+/g, " ").toUpperCase();
+}
+
+function extractPatentNumber(text) {
+  return String(text || "").match(/\b(CN\s*\d{8,12}\s*[A-Z]\d?)\b/i)?.[1]
+    ?.replace(/\s+/g, "")
+    .toUpperCase() || "";
+}
+
+function baseReferenceType(type) {
+  return String(type || "").toUpperCase().split("/")[0];
+}
+
 function extractUrl(text) {
   const matches = [...String(text).matchAll(/https?:\/\/[^\s<>"']+/ig)];
   if (!matches.length) return { url: "", raw: "" };
@@ -151,6 +190,11 @@ function parseReference(reference) {
     .replace(/^\s*(?:\[\s*\d+\s*\]|\d{1,3}[.、)])\s*/, "")
     .trim();
   const doi = extractDoi(work);
+  const isbn = extractIsbn(work);
+  const pmid = extractPmid(work);
+  const arxivId = extractArxivId(work);
+  const standardNumber = extractStandardNumber(work);
+  const patentNumber = extractPatentNumber(work);
   const urlMatch = extractUrl(work);
   const url = urlMatch.url;
   let body = urlMatch.raw ? work.replace(urlMatch.raw, "") : work;
@@ -249,6 +293,11 @@ function parseReference(reference) {
     raw,
     work,
     doi,
+    isbn,
+    pmid,
+    arxivId,
+    standardNumber,
+    patentNumber,
     url,
     type,
     title,
@@ -315,6 +364,36 @@ function scholarlyEvidenceLinks(parsed, doi = "") {
     links.push({
       label: "复制 Semantic Scholar 检索链接",
       url: `https://www.semanticscholar.org/search?q=${encodeURIComponent(title)}&sort=relevance`
+    });
+  }
+  if (parsed.isbn) {
+    links.unshift({
+      label: "复制 Open Library ISBN 记录链接",
+      url: `https://openlibrary.org/isbn/${encodeURIComponent(parsed.isbn)}`
+    });
+  }
+  if (parsed.pmid) {
+    links.unshift({
+      label: "复制 PubMed 记录链接",
+      url: `https://pubmed.ncbi.nlm.nih.gov/${encodeURIComponent(parsed.pmid)}/`
+    });
+  }
+  if (parsed.arxivId) {
+    links.unshift({
+      label: "复制 arXiv 官方记录链接",
+      url: `https://arxiv.org/abs/${encodeURIComponent(parsed.arxivId)}`
+    });
+  }
+  if (parsed.standardNumber) {
+    links.unshift({
+      label: "复制国家标准全文公开系统入口",
+      url: "https://openstd.samr.gov.cn/bzgk/gb/index"
+    });
+  }
+  if (parsed.patentNumber) {
+    links.unshift({
+      label: "复制专利号检索链接",
+      url: `https://www.baidu.com/s?wd=${encodeURIComponent(parsed.patentNumber)}`
     });
   }
   return links;
@@ -656,6 +735,178 @@ async function querySemanticScholar(parsed) {
   };
 }
 
+function openLibraryCandidate(item, isbn = "") {
+  const authors = (item.authors || item.author_name || [])
+    .map((author) => cleanValue(author?.name || author))
+    .filter(Boolean);
+  const publishers = (item.publishers || item.publisher || [])
+    .map((publisher) => cleanValue(publisher?.name || publisher))
+    .filter(Boolean);
+  const publishDate = String(item.publish_date || item.first_publish_year || "");
+  const year = Number(publishDate.match(/(?:18|19|20)\d{2}/)?.[0]) || null;
+  const key = item.key || "";
+  return {
+    source: "Open Library",
+    sources: ["Open Library"],
+    exactDoi: false,
+    title: item.title || "",
+    authors,
+    authorKeys: authors.map(authorKey).filter(Boolean),
+    year,
+    container: publishers[0] || "",
+    volume: "",
+    issue: "",
+    pages: item.number_of_pages || "",
+    doi: "",
+    isbn: isbn || (item.isbn || [])[0] || "",
+    type: "book",
+    sourceUrl: key
+      ? `https://openlibrary.org${key.startsWith("/") ? key : `/${key}`}`
+      : isbn
+        ? `https://openlibrary.org/isbn/${isbn}`
+        : ""
+  };
+}
+
+async function queryOpenLibrary(parsed) {
+  if (parsed.isbn) {
+    const bibkey = `ISBN:${parsed.isbn}`;
+    const endpoint = `https://openlibrary.org/api/books?bibkeys=${encodeURIComponent(bibkey)}&format=json&jscmd=data`;
+    const data = await fetchJson(endpoint);
+    const item = data?.[bibkey];
+    return {
+      source: "Open Library",
+      candidates: item ? [openLibraryCandidate(item, parsed.isbn)] : []
+    };
+  }
+  const endpoint = new URL("https://openlibrary.org/search.json");
+  endpoint.searchParams.set("title", parsed.title || parsed.work);
+  const author = splitSubmittedAuthors(parsed.authors)[0];
+  if (author) endpoint.searchParams.set("author", author);
+  endpoint.searchParams.set("limit", "5");
+  endpoint.searchParams.set(
+    "fields",
+    "key,title,author_name,first_publish_year,publisher,isbn"
+  );
+  const data = await fetchJson(endpoint.href);
+  return {
+    source: "Open Library",
+    candidates: (data?.docs || []).map((item) => openLibraryCandidate(item))
+  };
+}
+
+async function queryPubMed(parsed) {
+  if (!parsed.pmid) return { source: "PubMed", candidates: [] };
+  const endpoint = new URL("https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esummary.fcgi");
+  endpoint.searchParams.set("db", "pubmed");
+  endpoint.searchParams.set("id", parsed.pmid);
+  endpoint.searchParams.set("retmode", "json");
+  const data = await fetchJson(endpoint.href);
+  const item = data?.result?.[parsed.pmid];
+  if (!item) return { source: "PubMed", candidates: [] };
+  const authors = (item.authors || []).map((author) => cleanValue(author.name)).filter(Boolean);
+  const doi = (item.articleids || []).find((entry) => entry.idtype === "doi")?.value || "";
+  return {
+    source: "PubMed",
+    candidates: [{
+      source: "PubMed",
+      sources: ["PubMed"],
+      exactDoi: Boolean(parsed.doi && doi && parsed.doi === doi.toLowerCase()),
+      title: cleanValue(item.title),
+      authors,
+      authorKeys: authors.map(authorKey).filter(Boolean),
+      year: Number(String(item.pubdate || "").match(/(?:18|19|20)\d{2}/)?.[0]) || null,
+      container: cleanValue(item.fulljournalname || item.source),
+      volume: cleanValue(item.volume),
+      issue: cleanValue(item.issue),
+      pages: cleanValue(item.pages).replace(/[–—]/g, "-"),
+      doi: String(doi).toLowerCase(),
+      type: "journal-article",
+      sourceUrl: `https://pubmed.ncbi.nlm.nih.gov/${parsed.pmid}/`
+    }]
+  };
+}
+
+async function queryArxiv(parsed) {
+  if (!parsed.arxivId) return { source: "arXiv", candidates: [] };
+  const xml = await fetchText(
+    `https://export.arxiv.org/api/query?id_list=${encodeURIComponent(parsed.arxivId)}`
+  );
+  const $ = cheerio.load(xml, { xmlMode: true });
+  const entry = $("entry").first();
+  if (!entry.length) return { source: "arXiv", candidates: [] };
+  const authors = entry.find("author > name").map((_, node) => cleanValue($(node).text())).get();
+  const published = cleanValue(entry.find("published").first().text());
+  return {
+    source: "arXiv",
+    candidates: [{
+      source: "arXiv",
+      sources: ["arXiv"],
+      exactDoi: false,
+      title: cleanValue(entry.find("title").first().text().replace(/\s+/g, " ")),
+      authors,
+      authorKeys: authors.map(authorKey).filter(Boolean),
+      year: Number(published.slice(0, 4)) || null,
+      container: "arXiv",
+      volume: "",
+      issue: "",
+      pages: "",
+      doi: cleanValue(entry.find("arxiv\\:doi, doi").first().text()).toLowerCase(),
+      type: "report",
+      sourceUrl: `https://arxiv.org/abs/${parsed.arxivId}`
+    }]
+  };
+}
+
+function buildVerificationPlan(parsed) {
+  const providers = [];
+  const add = (name) => {
+    if (!providers.includes(name)) providers.push(name);
+  };
+  const type = baseReferenceType(parsed.type);
+
+  if (parsed.isbn || type === "M") add("open-library");
+  if (parsed.pmid) add("pubmed");
+  if (parsed.arxivId) add("arxiv");
+
+  if (!["S", "P", "N", "EB", "DB", "CP"].includes(type)) {
+    add("crossref");
+    add("openalex");
+  }
+  if (parsed.doi) add("doi-registry");
+  if (!parsed.doi && !hasHan(parsed.title) && type !== "M") add("semantic-scholar");
+  if (hasHan(parsed.raw)) add("search-engine");
+  return providers;
+}
+
+function providerJob(provider, parsed) {
+  if (provider === "crossref") {
+    return { source: "Crossref", promise: queryCrossref(parsed) };
+  }
+  if (provider === "openalex") {
+    return { source: "OpenAlex", promise: queryOpenAlex(parsed) };
+  }
+  if (provider === "doi-registry") {
+    return { source: "DOI 注册元数据", promise: queryDoiRegistry(parsed) };
+  }
+  if (provider === "semantic-scholar") {
+    return { source: "Semantic Scholar", promise: querySemanticScholar(parsed) };
+  }
+  if (provider === "search-engine") {
+    return { source: "搜索引擎结果摘要", promise: querySearchEngineEvidence(parsed) };
+  }
+  if (provider === "open-library") {
+    return { source: "Open Library", promise: queryOpenLibrary(parsed) };
+  }
+  if (provider === "pubmed") {
+    return { source: "PubMed", promise: queryPubMed(parsed) };
+  }
+  if (provider === "arxiv") {
+    return { source: "arXiv", promise: queryArxiv(parsed) };
+  }
+  throw new Error(`未知核验来源：${provider}`);
+}
+
 function searchSnippetCandidate(parsed, sourceUrl) {
   const authors = splitSubmittedAuthors(parsed.authors);
   return {
@@ -938,12 +1189,16 @@ function authorAgreement(parsed, candidate) {
 
 function typeAgreement(submitted, candidate) {
   if (!submitted || !candidate) return 0.7;
+  const expected = baseReferenceType(submitted);
   const type = String(candidate).toLowerCase();
-  if (submitted === "J") return /article|journal/.test(type) ? 1 : 0;
-  if (submitted === "C") return /proceedings|conference|article/.test(type) ? 1 : 0;
-  if (submitted === "M") return /book/.test(type) ? 1 : 0;
-  if (submitted === "D") return /dissertation|thesis/.test(type) ? 1 : 0;
-  if (submitted === "R") return /report/.test(type) ? 1 : 0;
+  if (expected === "J") return /article|journal/.test(type) ? 1 : 0;
+  if (expected === "C") return /proceedings|conference|article/.test(type) ? 1 : 0;
+  if (expected === "M") return /book/.test(type) ? 1 : 0;
+  if (expected === "D") return /dissertation|thesis/.test(type) ? 1 : 0;
+  if (expected === "R") return /report|preprint/.test(type) ? 1 : 0;
+  if (expected === "S") return /standard/.test(type) ? 1 : 0;
+  if (expected === "P") return /patent/.test(type) ? 1 : 0;
+  if (expected === "N") return /newspaper/.test(type) ? 1 : 0;
   return 0.7;
 }
 
@@ -1502,22 +1757,7 @@ async function verifyAcademicReference(reference, parsed) {
   const trusted = queryVerifiedReferenceIndex(parsed);
   const jobs = trusted.candidates.length
     ? [{ source: trusted.source, promise: Promise.resolve(trusted) }]
-    : [
-      { source: "Crossref", promise: queryCrossref(parsed) },
-      { source: "OpenAlex", promise: queryOpenAlex(parsed) }
-    ];
-  if (!trusted.candidates.length && parsed.doi && (!parsed.type || parsed.type === "J")) {
-    jobs.push({ source: "DOI 注册元数据", promise: queryDoiRegistry(parsed) });
-  }
-  if (!trusted.candidates.length && !parsed.doi && !hasHan(parsed.title)) {
-    jobs.push({ source: "Semantic Scholar", promise: querySemanticScholar(parsed) });
-  }
-  if (!trusted.candidates.length && !parsed.doi && hasHan(parsed.raw)) {
-    jobs.push({
-      source: "搜索引擎结果摘要",
-      promise: querySearchEngineEvidence(parsed)
-    });
-  }
+    : buildVerificationPlan(parsed).map((provider) => providerJob(provider, parsed));
   const checks = await Promise.allSettled(jobs.map((job) => job.promise));
   const available = checks
     .filter((item) => item.status === "fulfilled")
@@ -1625,9 +1865,13 @@ async function verifyAcademicReference(reference, parsed) {
 
 async function verifyReference(reference) {
   const parsed = parseReference(reference);
+  const type = String(parsed.type || "").toUpperCase();
   if (
-    parsed.type === "EB/OL" ||
-    (parsed.url && !parsed.doi && !["J", "C", "M", "D", "R"].includes(parsed.type))
+    type.includes("/OL") ||
+    (parsed.url && !parsed.doi && (
+      !type ||
+      ["EB", "DB", "CP", "N", "S", "P"].includes(baseReferenceType(type))
+    ))
   ) {
     return verifyWebReference(reference, parsed);
   }
@@ -1649,6 +1893,7 @@ async function verifyReference(reference) {
 module.exports = {
   verifyReference,
   parseReference,
+  buildVerificationPlan,
   diceSimilarity,
   normalizeText
 };
