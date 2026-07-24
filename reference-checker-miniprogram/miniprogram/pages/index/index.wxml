@@ -10,7 +10,7 @@
       <text>都经得起核验</text>
     </view>
     <view class="hero-copy">
-      粘贴或导入最多 20 条中英文参考文献，核对其真实性与著录准确性。
+      粘贴或导入最多 20 条中英文参考文献。先判断文献是否真实存在，再检查著录准确性。
     </view>
   </view>
 
@@ -114,7 +114,7 @@
           <text class="status-mark">{{result.statusMark}}</text>
           <text>{{result.statusLabel}}</text>
         </view>
-        <view class="confidence">第 {{result.displayIndex}} 条 · {{result.confidencePercent}}%</view>
+        <view class="confidence">第 {{result.displayIndex}} 条 · 真实性 {{result.confidencePercent}}%</view>
       </view>
 
       <view class="submitted">{{result.submitted}}</view>
@@ -150,9 +150,9 @@
 
   <view class="limits">
     <view class="limits-kicker">BOUNDARIES</view>
-    <view class="limits-title">“未核实”不等于“虚假”</view>
+    <view class="limits-title">“暂未证实”不等于“虚假”</view>
     <view class="limits-copy">
-      系统会核对开放学术数据库、DOI 元数据和网络原始页面。若来源暂时不可访问或未被数据库收录，只会标记为“暂未核实”，并提供继续复核的线索。
+      真实性置信度只依据作品身份字段与证据来源计算；卷期页和文献类型等著录差异不会降低真实性。若来源暂时不可访问或未被数据库收录，只会标记为“暂未证实”，并提供继续复核的线索。
     </view>
   </view>
 
