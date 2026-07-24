@@ -1,6 +1,6 @@
 {
   "description": "文证·参考文献核验微信小程序",
-  "appid": "touristappid",
+  "appid": "wxf7f4471533143581",
   "projectname": "reference-checker-miniprogram",
   "miniprogramRoot": "miniprogram/",
   "cloudfunctionRoot": "cloudfunctions/",
@@ -15,4 +15,3 @@
   },
   "condition": {}
 }
-
