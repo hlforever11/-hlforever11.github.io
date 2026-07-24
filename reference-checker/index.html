@@ -43,6 +43,7 @@
     const MAX=20,MAX_SIZE=15*1024*1024,REQUEST_TIMEOUT=9000;
     const TRUSTED_REFERENCE_CACHE=[
       {source:'《图书馆论坛》官网',sourceUrl:'https://tsglt.zslib.com.cn/CN/Y2023/V43/I5/104',title:'ChatGPT类智能对话工具兴起对图书馆行业的机遇与挑战',authors:['李书宁','刘一鸣'],year:2023,container:'图书馆论坛',volume:'43',issue:'5',pages:'104-110',type:'journal-article'},
+      {source:'《现代情报》正式题录（DOI）',sourceUrl:'https://doi.org/10.3969/j.issn.1008-0821.2023.04.001',title:'从ChatGPT看生成式AI对情报学研究与实践的影响',authors:['曹树金','曹茹烨'],year:2023,container:'现代情报',volume:'43',issue:'4',pages:'3-10',doi:'10.3969/j.issn.1008-0821.2023.04.001',type:'journal-article'},
       {source:'OpenAI 官方报告',sourceUrl:'https://cdn.openai.com/better-language-models/language_models_are_unsupervised_multitask_learners.pdf',title:'Language Models are Unsupervised Multitask Learners',authors:['Alec Radford','Jeffrey Wu','Rewon Child','David Luan','Dario Amodei','Ilya Sutskever'],year:2019,container:'OpenAI',volume:'',issue:'',pages:'',type:'report'},
       {source:'UNESCO 官方文献记录',sourceUrl:'https://unesdoc.unesco.org/ark:/48223/pf0000381137',title:'Recommendation on the Ethics of Artificial Intelligence',authors:['UNESCO'],year:2021,container:'United Nations Educational, Scientific and Cultural Organization',volume:'',issue:'',pages:'',type:'report'}
     ];
@@ -379,8 +380,8 @@
       partialAuthors&&partialFields.push('其余作者');partialPages&&partialFields.push('末页');
       return{source:'DOI 注册元数据',sources:['DOI 注册元数据'],exactDoi:true,title:cleanValue(tail[1]),authors,authorKeys:authors.map(authorKey).filter(Boolean),year:Number(head[2]),container:cleanValue(tail[2]),volume:cleanValue(tail[3]),issue:cleanValue(tail[4]),pages,doi:String(doi).toLowerCase(),type:'journal-article',sourceUrl:`https://doi.org/${doi}`,registryCitation:raw,partialFields};
     }
-    async function fetchDoiCitation(doi,parsed){
-      const url=`https://citation.doi.org/format?doi=${encodeURIComponent(doi)}&style=apa&lang=zh-CN`,text=await fetchText(url,12000);
+    async function fetchDoiCitation(doi,parsed,timeout=REQUEST_TIMEOUT){
+      const url=`https://citation.doi.org/format?doi=${encodeURIComponent(doi)}&style=apa&lang=zh-CN`,text=await fetchText(url,timeout);
       return parseDoiCitation(text,doi,parsed);
     }
     function likelyArticleSequences(pages){
@@ -399,16 +400,10 @@
       }
       if(!issns.length)return[];
       const issueNumber=Number(String(parsed.issue).match(/\d+/)?.[0]);if(!issueNumber)return[];
-      const sequences=likelyArticleSequences(parsed.pages),close=[];
-      for(const issn of issns.slice(0,2)){
-        const primary=sequences[0],patterns=[[parsed.year,issueNumber,primary],[parsed.year-1,issueNumber,primary],[parsed.year+1,issueNumber,primary],[parsed.year,Math.max(1,issueNumber-1),primary],[parsed.year,issueNumber+1,primary],...sequences.slice(1).map(sequence=>[parsed.year,issueNumber,sequence])];
-        for(let start=0;start<patterns.length;start+=5){
-          const dois=patterns.slice(start,start+5).map(([year,issue,sequence])=>`10.3969/j.issn.${issn}.${year}.${String(issue).padStart(2,'0')}.${String(sequence).padStart(3,'0')}`);
-          const settled=await Promise.allSettled(dois.map(doi=>fetchDoiCitation(doi,parsed)));
-          settled.forEach(result=>{if(result.status==='fulfilled'&&result.value){const score=diceSimilarity(parsed.title,result.value.title);score>=.72&&close.push({candidate:result.value,score})}});
-          const exact=close.sort((a,b)=>b.score-a.score)[0];if(exact?.score>=.90)return[exact.candidate];
-        }
-      }
+      const sequences=likelyArticleSequences(parsed.pages),patterns=[[parsed.year,issueNumber,sequences[0]],...sequences.slice(1,5).map(sequence=>[parsed.year,issueNumber,sequence]),[parsed.year-1,issueNumber,sequences[0]],[parsed.year+1,issueNumber,sequences[0]],[parsed.year,Math.max(1,issueNumber-1),sequences[0]]];
+      const dois=[...new Set(issns.slice(0,2).flatMap(issn=>patterns.map(([year,issue,sequence])=>`10.3969/j.issn.${issn}.${year}.${String(issue).padStart(2,'0')}.${String(sequence).padStart(3,'0')}`)))].slice(0,8);
+      const settled=await Promise.allSettled(dois.map(doi=>fetchDoiCitation(doi,parsed,6500))),close=[];
+      settled.forEach(result=>{if(result.status==='fulfilled'&&result.value){const score=diceSimilarity(parsed.title,result.value.title);score>=.72&&close.push({candidate:result.value,score})}});
       return close.sort((a,b)=>b.score-a.score).slice(0,1).map(item=>item.candidate);
     }
     async function queryDoiRegistry(parsed){
@@ -511,7 +506,7 @@
       if(parsed.pmid)add('pubmed');
       if(parsed.arxivId)add('arxiv');
       if(!['S','P','N','EB','DB','CP'].includes(type)){add('crossref');add('openalex')}
-      if(parsed.doi||type==='J'&&hasHan(parsed.raw))add('doi-registry');
+      if(parsed.doi||type==='J'&&hasHan(parsed.title)&&parsed.container&&parsed.year&&parsed.issue)add('doi-registry');
       if(!parsed.doi&&!['M','S','P','N','EB','DB','CP'].includes(type))add('semantic-scholar');
       return providers;
     }
