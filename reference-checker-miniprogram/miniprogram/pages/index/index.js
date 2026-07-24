@@ -13,11 +13,11 @@ const SAMPLE = [
 ].join("\n");
 
 const STATUS_META = {
-  verified: { label: "真实且字段一致", mark: "✓" },
-  partial: { label: "真实，部分字段待复核", mark: "✓" },
-  corrected: { label: "真实但需要修正", mark: "!" },
-  review: { label: "找到近似记录", mark: "?" },
-  unverified: { label: "暂未核实", mark: "—" },
+  verified: { label: "已确认真实，著录一致", mark: "✓" },
+  partial: { label: "已确认真实，部分字段待复核", mark: "✓" },
+  corrected: { label: "已确认真实，著录需修正", mark: "!" },
+  review: { label: "真实性需人工复核", mark: "?" },
+  unverified: { label: "暂未证实", mark: "—" },
   error: { label: "核验失败", mark: "×" }
 };
 
@@ -378,7 +378,9 @@ Page({
       statusLabel: meta.label,
       statusMark: meta.mark,
       displayIndex: index + 1,
-      confidencePercent: Math.round(Number(result.confidence || 0) * 100),
+      confidencePercent: Math.round(Number(
+        result.authenticityConfidence ?? result.confidence ?? 0
+      ) * 100),
       differences: result.differences || [],
       links
     };
@@ -398,10 +400,10 @@ Page({
       else counts.unresolved += 1;
     });
     return [
-      { label: "已确认", value: counts.confirmed },
-      { label: "需修正", value: counts.corrected },
-      { label: "待复核", value: counts.review },
-      { label: "未核实/失败", value: counts.unresolved }
+      { label: "已确认真实", value: counts.confirmed },
+      { label: "真实但需修正", value: counts.corrected },
+      { label: "需人工复核", value: counts.review },
+      { label: "暂未证实/失败", value: counts.unresolved }
     ];
   },
 
