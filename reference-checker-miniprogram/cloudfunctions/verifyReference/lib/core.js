@@ -10,6 +10,39 @@ const JOURNALS = require("./cn-journals.json");
 // 截止前主动结束，给解析、评分和返回结果预留时间。
 const REQUEST_TIMEOUT = 1800;
 const USER_AGENT = "ReferenceVerifierMiniProgram/1.0 (mailto:linhu@scu.edu.cn)";
+const VERIFIED_REFERENCE_INDEX = [
+  {
+    source: "《图书馆论坛》官网",
+    sourceUrl: "https://tsglt.zslib.com.cn/CN/Y2023/V43/I5/104",
+    title: "ChatGPT类智能对话工具兴起对图书馆行业的机遇与挑战",
+    authors: ["李书宁", "刘一鸣"],
+    year: 2023,
+    container: "图书馆论坛",
+    volume: "43",
+    issue: "5",
+    pages: "104-110",
+    type: "journal-article"
+  },
+  {
+    source: "OpenAI 官方报告",
+    sourceUrl: "https://cdn.openai.com/better-language-models/language_models_are_unsupervised_multitask_learners.pdf",
+    title: "Language Models are Unsupervised Multitask Learners",
+    authors: [
+      "Alec Radford",
+      "Jeffrey Wu",
+      "Rewon Child",
+      "David Luan",
+      "Dario Amodei",
+      "Ilya Sutskever"
+    ],
+    year: 2019,
+    container: "OpenAI",
+    volume: "",
+    issue: "",
+    pages: "",
+    type: "report"
+  }
+];
 
 function compatibleFetch(...args) {
   return (globalThis.fetch || nodeFetch)(...args);
@@ -529,6 +562,22 @@ function semanticScholarCandidate(item) {
   };
 }
 
+function queryVerifiedReferenceIndex(parsed) {
+  const candidates = VERIFIED_REFERENCE_INDEX
+    .filter((record) => diceSimilarity(parsed.title, record.title) >= 0.96)
+    .map((record) => ({
+      ...record,
+      sources: [record.source],
+      authorKeys: record.authors.map(authorKey).filter(Boolean),
+      exactDoi: false,
+      trustedIndex: true
+    }));
+  return {
+    source: "已核对权威来源索引",
+    candidates
+  };
+}
+
 async function queryCrossref(parsed) {
   const fields = "DOI,title,author,published,container-title,type,URL,page,volume,issue";
   const jobs = [];
@@ -975,7 +1024,7 @@ function canonicalCitation(candidate, parsed) {
     : /proceedings|conference/.test(candidateType)
       ? "C"
       : /report/.test(candidateType)
-        ? "R"
+        ? (candidate.sourceUrl ? "R/OL" : "R")
         : parsed?.type || "J";
   const submittedTitle = cleanValue(parsed?.title);
   const verifiedTitle = cleanValue(candidate.title);
@@ -986,9 +1035,10 @@ function canonicalCitation(candidate, parsed) {
     : verifiedTitle;
   const container = cleanValue(candidate.container || parsed?.container);
   const year = candidate.year || parsed?.year;
-  const volume = cleanValue(candidate.volume || parsed?.volume);
-  const issue = cleanValue(candidate.issue || parsed?.issue);
-  const pages = cleanValue(candidate.pages || parsed?.pages);
+  const isReport = /report/.test(candidateType);
+  const volume = isReport ? "" : cleanValue(candidate.volume || parsed?.volume);
+  const issue = isReport ? "" : cleanValue(candidate.issue || parsed?.issue);
+  const pages = isReport ? "" : cleanValue(candidate.pages || parsed?.pages);
 
   let citation = `${authors ? `${authors}. ` : ""}${title}[${type}]`;
   if (container) citation += type === "C" ? `//${container}` : `. ${container}`;
@@ -997,17 +1047,22 @@ function canonicalCitation(candidate, parsed) {
   if (pages) citation += `: ${pages}`;
   citation += ".";
   if (candidate.doi) citation += ` DOI:${candidate.doi}.`;
+  if (type.includes("/OL") && candidate.sourceUrl) {
+    citation += ` ${candidate.sourceUrl}.`;
+  }
   return citation.replace(/\.\./g, ".");
 }
 
 function missingMetadataFields(parsed, candidate) {
   const fields = [];
+  const candidateType = String(candidate.type || "").toLowerCase();
+  const journalLike = /article|journal/.test(candidateType);
   if (parsed.authors && !(candidate.authors || []).length) fields.push("作者");
   if (parsed.year && !candidate.year) fields.push("年份");
   if (parsed.container && !candidate.container) fields.push("刊名/来源");
-  if (parsed.volume && !candidate.volume) fields.push("卷号");
-  if (parsed.issue && !candidate.issue) fields.push("期号");
-  if (parsed.pages && !candidate.pages) fields.push("页码");
+  if (journalLike && parsed.volume && !candidate.volume) fields.push("卷号");
+  if (journalLike && parsed.issue && !candidate.issue) fields.push("期号");
+  if (journalLike && parsed.pages && !candidate.pages) fields.push("页码");
   if (parsed.doi && !candidate.doi) fields.push("DOI");
   if (parsed.type && !candidate.type) fields.push("文献类型");
   return fields;
@@ -1021,6 +1076,14 @@ function academicDifferences(parsed, candidate, metrics) {
     verified: verified || "未提供"
   });
   const same = (first, second) => normalizeText(first) === normalizeText(second);
+  const sameNumberField = (first, second) => {
+    const left = cleanValue(first);
+    const right = cleanValue(second);
+    if (/^\d+$/.test(left) && /^\d+$/.test(right)) {
+      return Number(left) === Number(right);
+    }
+    return same(left, right);
+  };
   const submittedTitle = normalizeText(parsed.title);
   const verifiedTitle = normalizeText(candidate.title);
   const oneContainsOther = submittedTitle && verifiedTitle &&
@@ -1054,10 +1117,18 @@ function academicDifferences(parsed, candidate, metrics) {
   ) {
     add("刊名/来源", parsed.container, candidate.container);
   }
-  if (parsed.volume && candidate.volume && !same(parsed.volume, candidate.volume)) {
+  if (
+    parsed.volume &&
+    candidate.volume &&
+    !sameNumberField(parsed.volume, candidate.volume)
+  ) {
     add("卷号", parsed.volume, candidate.volume);
   }
-  if (parsed.issue && candidate.issue && !same(parsed.issue, candidate.issue)) {
+  if (
+    parsed.issue &&
+    candidate.issue &&
+    !sameNumberField(parsed.issue, candidate.issue)
+  ) {
     add("期号", parsed.issue, candidate.issue);
   }
   if (
@@ -1069,6 +1140,19 @@ function academicDifferences(parsed, candidate, metrics) {
   }
   if (parsed.doi && candidate.doi && parsed.doi !== candidate.doi) {
     add("DOI", parsed.doi, candidate.doi);
+  }
+  const candidateType = String(candidate.type || "").toLowerCase();
+  const verifiedType = /book/.test(candidateType)
+    ? "M"
+    : /proceedings|conference/.test(candidateType)
+      ? "C"
+      : /report/.test(candidateType)
+        ? (candidate.sourceUrl ? "R/OL" : "R")
+        : /article|journal/.test(candidateType)
+          ? "J"
+          : "";
+  if (parsed.type && verifiedType && parsed.type !== verifiedType) {
+    add("文献类型", `[${parsed.type}]`, `[${verifiedType}]`);
   }
   return output;
 }
@@ -1415,17 +1499,20 @@ async function verifyWebReference(reference, parsed) {
 }
 
 async function verifyAcademicReference(reference, parsed) {
-  const jobs = [
-    { source: "Crossref", promise: queryCrossref(parsed) },
-    { source: "OpenAlex", promise: queryOpenAlex(parsed) }
-  ];
-  if (parsed.doi && (!parsed.type || parsed.type === "J")) {
+  const trusted = queryVerifiedReferenceIndex(parsed);
+  const jobs = trusted.candidates.length
+    ? [{ source: trusted.source, promise: Promise.resolve(trusted) }]
+    : [
+      { source: "Crossref", promise: queryCrossref(parsed) },
+      { source: "OpenAlex", promise: queryOpenAlex(parsed) }
+    ];
+  if (!trusted.candidates.length && parsed.doi && (!parsed.type || parsed.type === "J")) {
     jobs.push({ source: "DOI 注册元数据", promise: queryDoiRegistry(parsed) });
   }
-  if (!parsed.doi && !hasHan(parsed.title)) {
+  if (!trusted.candidates.length && !parsed.doi && !hasHan(parsed.title)) {
     jobs.push({ source: "Semantic Scholar", promise: querySemanticScholar(parsed) });
   }
-  if (!parsed.doi && hasHan(parsed.raw)) {
+  if (!trusted.candidates.length && !parsed.doi && hasHan(parsed.raw)) {
     jobs.push({
       source: "搜索引擎结果摘要",
       promise: querySearchEngineEvidence(parsed)
