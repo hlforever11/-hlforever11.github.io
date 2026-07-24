@@ -83,7 +83,7 @@ const VERIFIED_REFERENCE_INDEX = [
     source: "Journal of Information Literacy 官方记录",
     sourceUrl: "https://journals.cilip.org.uk/jil/article/view/14",
     title: "Artificial intelligence skills and knowledge in libraries: Experiences and critical impressions from a learning circle",
-    authors: ["Karin Andersdotter"],
+    authors: ["Karolina Andersdotter"],
     year: 2023,
     container: "Journal of Information Literacy",
     volume: "17",
@@ -96,7 +96,7 @@ const VERIFIED_REFERENCE_INDEX = [
     source: "Taylor & Francis DOI 正式题录",
     sourceUrl: "https://doi.org/10.1080/1369118X.2024.2382224",
     title: "Understanding algorithmic recommendations: A qualitative study on children's algorithm literacy in Switzerland",
-    authors: ["Judith Ernst"],
+    authors: ["Julian Ernst"],
     year: 2024,
     container: "Information, Communication & Society",
     volume: "28",
@@ -560,7 +560,7 @@ function authorKey(name) {
   }
   if (value.includes(",")) return normalizeText(value.split(",")[0]);
   const last = parts[parts.length - 1] || value;
-  if (/^[A-Z](?:[A-Z.]*)?$/i.test(last) && parts.length > 1) {
+  if (/^[A-Z](?:[A-Z.]*)?$/.test(last) && parts.length > 1) {
     return normalizeText(parts[0]);
   }
   return normalizeText(last);
@@ -1549,7 +1549,7 @@ function authorAgreement(parsed, candidate) {
 
 function scoreCandidate(parsed, candidate) {
   const titleScore = parsed.title
-    ? diceSimilarity(parsed.title, candidate.title)
+    ? Math.max(\n      ...[candidate.title, ...(candidate.alternateTitles || [])]\n        .map((title) => diceSimilarity(parsed.title, title))\n    )
     : normalizeText(parsed.raw).includes(normalizeText(candidate.title))
       ? 0.92
       : 0;
@@ -1720,14 +1720,15 @@ function academicDifferences(parsed, candidate, metrics) {
   };
   const submittedTitle = normalizeText(parsed.title);
   const verifiedTitle = normalizeText(candidate.title);
+  const canonicalTitleScore = diceSimilarity(parsed.title, candidate.title);
   const oneContainsOther = submittedTitle && verifiedTitle &&
     (submittedTitle.includes(verifiedTitle) || verifiedTitle.includes(submittedTitle));
 
   if (
     parsed.title &&
     candidate.title &&
-    metrics.titleScore < 0.96 &&
-    metrics.titleScore > 0.58 &&
+    canonicalTitleScore < 0.96 &&
+    canonicalTitleScore > 0.58 &&
     !oneContainsOther
   ) {
     add("篇名", parsed.title, candidate.title);
