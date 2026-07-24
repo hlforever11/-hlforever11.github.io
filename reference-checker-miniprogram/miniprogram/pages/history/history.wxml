@@ -1,0 +1,45 @@
+<view class="history-page">
+  <view class="history-head">
+    <view>
+      <view class="history-title">核验历史</view>
+      <view class="history-copy">记录只与当前微信身份关联</view>
+    </view>
+    <button
+      wx:if="{{records.length}}"
+      class="clear-history"
+      size="mini"
+      bindtap="clearHistory"
+    >清空</button>
+  </view>
+
+  <view wx:if="{{loading}}" class="state-card">正在读取…</view>
+  <view wx:elif="{{errorMessage}}" class="state-card state-error">
+    <view>{{errorMessage}}</view>
+    <button size="mini" bindtap="loadHistory">重试</button>
+  </view>
+  <view wx:elif="{{!records.length}}" class="state-card">
+    <view class="empty-mark">○</view>
+    <view class="empty-title">还没有核验记录</view>
+    <view class="empty-copy">返回首页完成一次核验后，记录会保存在这里。</view>
+  </view>
+
+  <view wx:else class="record-list">
+    <view class="record-card" wx:for="{{records}}" wx:key="_id" wx:for-item="record">
+      <view class="record-top">
+        <view class="record-time">{{record.createdText}}</view>
+        <view class="record-count">{{record.referenceCount}} 条</view>
+      </view>
+      <view class="record-input">{{record.preview}}</view>
+      <view class="record-summary">
+        <text>已确认 {{record.summary.confirmed}}</text>
+        <text>需修正 {{record.summary.corrected}}</text>
+        <text>待复核 {{record.summary.review}}</text>
+        <text>未核实 {{record.summary.unresolved}}</text>
+      </view>
+      <view class="record-actions">
+        <button class="reuse-button" size="mini" data-id="{{record._id}}" bindtap="reuseRecord">载入并再次核验</button>
+        <button class="delete-button" size="mini" data-id="{{record._id}}" bindtap="deleteRecord">删除</button>
+      </view>
+    </view>
+  </view>
+</view>
