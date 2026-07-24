@@ -41,6 +41,18 @@ const VERIFIED_REFERENCE_INDEX = [
     issue: "",
     pages: "",
     type: "report"
+  },
+  {
+    source: "UNESCO 官方文献记录",
+    sourceUrl: "https://unesdoc.unesco.org/ark:/48223/pf0000381137",
+    title: "Recommendation on the Ethics of Artificial Intelligence",
+    authors: ["UNESCO"],
+    year: 2021,
+    container: "United Nations Educational, Scientific and Cultural Organization",
+    volume: "",
+    issue: "",
+    pages: "",
+    type: "report"
   }
 ];
 
@@ -409,7 +421,16 @@ function webEvidenceLinks(parsed) {
     parsed.authors,
     host ? `site:${host}` : ""
   ].filter(Boolean).join(" ");
-  const links = [];
+  const ark = unesdocArk(parsed.url);
+  const links = ark
+    ? [
+      { label: "复制 UNESDOC 原文链接", url: ark.recordUrl },
+      {
+        label: "复制 UNESCO 官方书目目录链接",
+        url: "https://data.unesco.org/explore/dataset/doc001/?flg=en-us"
+      }
+    ]
+    : [];
   if (hasHan(parsed.raw)) {
     links.push({
       label: "复制搜索引擎复核链接",
@@ -417,6 +438,61 @@ function webEvidenceLinks(parsed) {
     });
   }
   return links;
+}
+
+function unesdocArk(value) {
+  try {
+    const url = new URL(value);
+    if (url.hostname.toLowerCase() !== "unesdoc.unesco.org") return null;
+    const match = decodeURIComponent(url.pathname).match(
+      /^\/ark:\/48223\/(pf\d+)(\/[A-Za-z0-9._-]+)?\/?$/i
+    );
+    if (!match) return null;
+    const suffix = (match[2] || "").replace(/\/+$/, "");
+    const id = match[1].toLowerCase();
+    return {
+      id,
+      recordUrl: `https://unesdoc.unesco.org/ark:/48223/${id}${suffix}`,
+      baseUrl: `https://unesdoc.unesco.org/ark:/48223/${id}`
+    };
+  } catch {
+    return null;
+  }
+}
+
+function comparableUrl(value) {
+  try {
+    const url = new URL(value);
+    url.hash = "";
+    url.hostname = url.hostname.toLowerCase().replace(/^www\./, "");
+    url.pathname = url.pathname.replace(/\/+$/, "") || "/";
+    return `${url.hostname}${decodeURIComponent(url.pathname)}${url.search}`;
+  } catch {
+    return String(value || "");
+  }
+}
+
+function englishTextDate(value) {
+  const months = {
+    january: "01",
+    february: "02",
+    march: "03",
+    april: "04",
+    may: "05",
+    june: "06",
+    july: "07",
+    august: "08",
+    september: "09",
+    october: "10",
+    november: "11",
+    december: "12"
+  };
+  const match = String(value || "").match(
+    /\b(\d{1,2})\s+(January|February|March|April|May|June|July|August|September|October|November|December)\s+((?:18|19|20)\d{2})\b/i
+  );
+  return match
+    ? `${match[3]}-${months[match[2].toLowerCase()]}-${String(Number(match[1])).padStart(2, "0")}`
+    : "";
 }
 
 async function fetchWithTimeout(url, options = {}, timeout = REQUEST_TIMEOUT) {
@@ -643,7 +719,14 @@ function semanticScholarCandidate(item) {
 
 function queryVerifiedReferenceIndex(parsed) {
   const candidates = VERIFIED_REFERENCE_INDEX
-    .filter((record) => diceSimilarity(parsed.title, record.title) >= 0.96)
+    .filter((record) =>
+      diceSimilarity(parsed.title, record.title) >= 0.96 &&
+      (
+        !parsed.url ||
+        !record.sourceUrl ||
+        comparableUrl(parsed.url) === comparableUrl(record.sourceUrl)
+      )
+    )
     .map((record) => ({
       ...record,
       sources: [record.source],
@@ -1590,6 +1673,77 @@ async function fetchWebCandidate(parsed) {
   };
 }
 
+function firstRecordValue(value) {
+  return Array.isArray(value) ? value[0] : value;
+}
+
+async function fetchUnesdocCandidate(parsed) {
+  const ark = unesdocArk(parsed.url);
+  if (!ark) throw new Error("不是可识别的 UNESDOC ARK 地址");
+  const query = async (recordUrl) => {
+    const endpoint = new URL(
+      "https://data.unesco.org/api/explore/v2.1/catalog/datasets/doc001/records"
+    );
+    endpoint.searchParams.set("where", `url="${recordUrl}"`);
+    endpoint.searchParams.set("limit", "5");
+    return fetchJson(endpoint.href);
+  };
+  const findRecord = (data, expectedUrl) => (data?.results || []).find((item) => {
+    const itemUrl = firstRecordValue(item.url);
+    return comparableUrl(itemUrl) === comparableUrl(expectedUrl) ||
+      comparableUrl(itemUrl).includes(ark.id);
+  });
+
+  let data = await query(ark.recordUrl);
+  let record = findRecord(data, ark.recordUrl);
+  if (!record && ark.recordUrl !== ark.baseUrl) {
+    data = await query(ark.baseUrl);
+    record = findRecord(data, ark.baseUrl);
+  }
+  if (!record) throw new Error("UNESCO 官方目录中未检出该 ARK 记录");
+
+  const recordUrl = cleanWebField(firstRecordValue(record.url) || ark.recordUrl);
+  const catalogYear = normalizeDate(firstRecordValue(record.year));
+  const description = Array.isArray(record.description)
+    ? record.description.join(" ")
+    : record.description;
+  const adoptionDate = englishTextDate(description);
+  const creator = cleanWebField(firstRecordValue(record.creator) || "UNESCO");
+  const publicationDate = catalogYear || adoptionDate;
+  return {
+    source: "UNESCO DataHub（UNESDOC 官方目录）",
+    sourceUrl: recordUrl,
+    reachable: true,
+    title: cleanWebField(firstRecordValue(record.title)),
+    authors: creator ? [creator] : ["UNESCO"],
+    publicationDate,
+    acceptedPublicationDates: [catalogYear, adoptionDate].filter(Boolean),
+    citationDate: adoptionDate ? adoptionDate.slice(0, 4) : publicationDate,
+    year: publicationDate ? Number(publicationDate.slice(0, 4)) : null,
+    container: "United Nations Educational, Scientific and Cultural Organization",
+    contentType: "catalog-record",
+    type: "report",
+    officialRecord: true,
+    adoptionDate,
+    catalogYear,
+    recordCode: cleanWebField(firstRecordValue(record.ref_code))
+  };
+}
+
+async function resolveWebCandidate(parsed) {
+  if (!unesdocArk(parsed.url)) return fetchWebCandidate(parsed);
+  const checks = await Promise.allSettled([
+    fetchUnesdocCandidate(parsed),
+    fetchWebCandidate(parsed)
+  ]);
+  if (checks[0].status === "fulfilled") return checks[0].value;
+  if (checks[1].status === "fulfilled") return checks[1].value;
+  throw new Error(
+    `${checks[0].reason?.message || "UNESCO 官方目录暂时不可用"}；` +
+    `${checks[1].reason?.message || "UNESDOC 原页面暂时不可读"}`
+  );
+}
+
 function webTitleAgreement(submitted, verified) {
   if (!submitted || !verified) return null;
   const direct = diceSimilarity(submitted, verified);
@@ -1610,12 +1764,20 @@ function webAuthorAgreement(submitted, verified) {
 }
 
 function webDateAgreement(submitted, candidate) {
-  if (!submitted || !candidate.publicationDate) return null;
+  if (!submitted) return null;
   const first = normalizeDate(submitted);
-  const second = normalizeDate(candidate.publicationDate);
-  if (!first || !second) return null;
-  if (first === second) return 1;
-  if (first.slice(0, 4) === second.slice(0, 4) && (first.length === 4 || second.length === 4)) {
+  const candidates = [
+    candidate.citationDate,
+    candidate.publicationDate,
+    ...(candidate.acceptedPublicationDates || [])
+  ].map(normalizeDate).filter(Boolean);
+  if (!first || !candidates.length) return null;
+  if (candidates.some((value) => first === value)) return 1;
+  if (candidates.some(
+    (value) =>
+      first.slice(0, 4) === value.slice(0, 4) &&
+      (first.length === 4 || value.length === 4)
+  )) {
     return 0.82;
   }
   return 0;
@@ -1626,12 +1788,17 @@ function webCanonicalCitation(candidate, parsed) {
     ? candidate.authors.join(hasHan(candidate.authors.join("")) ? "，" : ", ")
     : parsed.authors;
   const title = candidate.title || parsed.title;
-  const date = candidate.publicationDate || parsed.publicationDate || parsed.year || "";
+  const date = candidate.citationDate ||
+    candidate.publicationDate ||
+    parsed.publicationDate ||
+    parsed.year ||
+    "";
   const accessed = parsed.accessDate ? `[${parsed.accessDate}]` : "";
   const source = candidate.container || parsed.container;
+  const type = /report/i.test(String(candidate.type || "")) ? "R/OL" : "EB/OL";
   return [
     authorNames ? `${authorNames}.` : "",
-    title ? `${title}[EB/OL].` : "",
+    title ? `${title}[${type}].` : "",
     source ? `${source}.` : "",
     date ? `(${date})` : "",
     accessed,
@@ -1642,7 +1809,7 @@ function webCanonicalCitation(candidate, parsed) {
 async function verifyWebReference(reference, parsed) {
   const evidenceLinks = webEvidenceLinks(parsed);
   try {
-    const candidate = await fetchWebCandidate(parsed);
+    const candidate = await resolveWebCandidate(parsed);
     const titleScore = webTitleAgreement(parsed.title, candidate.title);
     const authorScore = webAuthorAgreement(parsed.authors, candidate.authors);
     const dateScore = webDateAgreement(parsed.publicationDate, candidate);
@@ -1745,9 +1912,19 @@ async function verifyWebReference(reference, parsed) {
           : "review";
     let note = differences.length
       ? "已确认原始网址指向同一内容；真实性判断不受下列著录差异影响，但建议修正这些字段。"
-      : confirmed
+      : candidate.officialRecord
+        ? "已按 ARK 永久标识在 UNESCO 官方书目目录中查到同一记录，可确认该文献真实存在。"
+        : confirmed
         ? "已读取原始网页，并通过网址、篇名和作者等身份字段确认该文献真实存在。"
         : "已读取原始网页并找到较强匹配，请结合原页面继续复核。";
+    if (
+      candidate.officialRecord &&
+      candidate.adoptionDate &&
+      candidate.catalogYear &&
+      candidate.adoptionDate.slice(0, 4) !== candidate.catalogYear.slice(0, 4)
+    ) {
+      note += ` 官方记录显示文件于 ${candidate.adoptionDate} 通过、目录版本年份为 ${candidate.catalogYear}；两者属于不同日期口径。`;
+    }
     if (missing.length && !differences.length) {
       note += ` 页面未提供可自动读取的${missing.join("、")}，相关字段保留原著录。`;
     }
@@ -1763,7 +1940,7 @@ async function verifyWebReference(reference, parsed) {
       differences,
       accuracyDifferences: differences,
       authenticityBasis: [
-        "提交网址可以访问",
+        candidate.officialRecord ? "UNESDOC ARK 永久标识一致" : "提交网址可以访问",
         "页面篇名高度一致",
         ...(authorScore !== null && authorScore >= 0.5 ? ["作者信息支持"] : [])
       ],
@@ -1910,12 +2087,15 @@ async function verifyAcademicReference(reference, parsed) {
 async function verifyReference(reference) {
   const parsed = parseReference(reference);
   const type = String(parsed.type || "").toUpperCase();
+  const trusted = queryVerifiedReferenceIndex(parsed);
   if (
-    type.includes("/OL") ||
-    (parsed.url && !parsed.doi && (
-      !type ||
-      ["EB", "DB", "CP", "N", "S", "P"].includes(baseReferenceType(type))
-    ))
+    !trusted.candidates.length && (
+      type.includes("/OL") ||
+      (parsed.url && !parsed.doi && (
+        !type ||
+        ["EB", "DB", "CP", "N", "S", "P"].includes(baseReferenceType(type))
+      ))
+    )
   ) {
     return verifyWebReference(reference, parsed);
   }
