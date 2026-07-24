@@ -24,6 +24,19 @@ const VERIFIED_REFERENCE_INDEX = [
     type: "journal-article"
   },
   {
+    source: "《现代情报》正式题录（DOI）",
+    sourceUrl: "https://doi.org/10.3969/j.issn.1008-0821.2023.04.001",
+    title: "从ChatGPT看生成式AI对情报学研究与实践的影响",
+    authors: ["曹树金", "曹茹烨"],
+    year: 2023,
+    container: "现代情报",
+    volume: "43",
+    issue: "4",
+    pages: "3-10",
+    doi: "10.3969/j.issn.1008-0821.2023.04.001",
+    type: "journal-article"
+  },
+  {
     source: "OpenAI 官方报告",
     sourceUrl: "https://cdn.openai.com/better-language-models/language_models_are_unsupervised_multitask_learners.pdf",
     title: "Language Models are Unsupervised Multitask Learners",
@@ -958,7 +971,18 @@ function buildVerificationPlan(parsed) {
     add("crossref");
     add("openalex");
   }
-  if (parsed.doi) add("doi-registry");
+  if (
+    parsed.doi ||
+    (
+      type === "J" &&
+      hasHan(parsed.title) &&
+      parsed.container &&
+      parsed.year &&
+      parsed.issue
+    )
+  ) {
+    add("doi-registry");
+  }
   if (!parsed.doi && !hasHan(parsed.title) && type !== "M") add("semantic-scholar");
   if (hasHan(parsed.raw)) add("search-engine");
   return providers;
@@ -1128,9 +1152,9 @@ function parseDoiCitation(text, doi, parsed) {
   };
 }
 
-async function fetchDoiCitation(doi, parsed) {
+async function fetchDoiCitation(doi, parsed, timeout = REQUEST_TIMEOUT) {
   const url = `https://citation.doi.org/format?doi=${encodeURIComponent(doi)}&style=apa&lang=zh-CN`;
-  const text = await fetchText(url);
+  const text = await fetchText(url, timeout);
   return parseDoiCitation(text, doi, parsed);
 }
 
@@ -1192,35 +1216,29 @@ async function inferChineseDoi(parsed) {
   const issueNumber = Number(String(parsed.issue).match(/\d+/)?.[0]);
   if (!issueNumber) return [];
   const sequences = likelyArticleSequences(parsed.pages);
-  const close = [];
-
-  for (const issn of issns.slice(0, 2)) {
-    const primary = sequences[0];
-    const patterns = [
-      [parsed.year, issueNumber, primary],
-      [parsed.year - 1, issueNumber, primary],
-      [parsed.year + 1, issueNumber, primary],
-      [parsed.year, Math.max(1, issueNumber - 1), primary],
-      [parsed.year, issueNumber + 1, primary],
-      ...sequences.slice(1).map((sequence) => [parsed.year, issueNumber, sequence])
-    ];
-
-    for (let start = 0; start < patterns.length; start += 5) {
-      const dois = patterns.slice(start, start + 5).map(([year, issue, sequence]) =>
+  const patterns = [
+    [parsed.year, issueNumber, sequences[0]],
+    ...sequences.slice(1, 5).map((sequence) => [parsed.year, issueNumber, sequence]),
+    [parsed.year - 1, issueNumber, sequences[0]],
+    [parsed.year + 1, issueNumber, sequences[0]],
+    [parsed.year, Math.max(1, issueNumber - 1), sequences[0]]
+  ];
+  const dois = [...new Set(
+    issns
+      .slice(0, 2)
+      .flatMap((issn) => patterns.map(([year, issue, sequence]) =>
         `10.3969/j.issn.${issn}.${year}.${String(issue).padStart(2, "0")}.${String(sequence).padStart(3, "0")}`
-      );
-      const settled = await Promise.allSettled(
-        dois.map((doi) => fetchDoiCitation(doi, parsed))
-      );
-      settled.forEach((result) => {
-        if (result.status !== "fulfilled" || !result.value) return;
-        const score = diceSimilarity(parsed.title, result.value.title);
-        if (score >= 0.72) close.push({ candidate: result.value, score });
-      });
-      const exact = close.sort((a, b) => b.score - a.score)[0];
-      if (exact?.score >= 0.9) return [exact.candidate];
-    }
-  }
+      ))
+  )].slice(0, 8);
+  const settled = await Promise.allSettled(
+    dois.map((doi) => fetchDoiCitation(doi, parsed, 1350))
+  );
+  const close = [];
+  settled.forEach((result) => {
+    if (result.status !== "fulfilled" || !result.value) return;
+    const score = diceSimilarity(parsed.title, result.value.title);
+    if (score >= 0.72) close.push({ candidate: result.value, score });
+  });
   return close
     .sort((a, b) => b.score - a.score)
     .slice(0, 1)
