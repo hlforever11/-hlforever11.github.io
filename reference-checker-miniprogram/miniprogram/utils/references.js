@@ -1,4 +1,4 @@
-const NUMBERED_START = /^(?:\[\s*\d{1,3}\s*\]|\d{1,3}[.、)])\s*/;
+const NUMBERED_START = /^(?:\[\s*\d{1,3}\s*\]|[（(]\s*\d{1,3}\s*[）)]|[①②③④⑤⑥⑦⑧⑨⑩⑪⑫⑬⑭⑮⑯⑰⑱⑲⑳]|\d{1,3}[.、)])\s*/;
 
 function bibliographicCue(value) {
   return /(?:18|19|20)\d{2}|\[[A-Z/]+\]|https?:\/\/|10\.\d{4,9}\//i.test(String(value || ""));
@@ -36,7 +36,7 @@ function looksLikeReferenceStart(value) {
 }
 
 function inlineNumberedMarkers(clean) {
-  const markers = [...clean.matchAll(/\[\s*(\d{1,3})\s*\]/g)]
+  const markers = [...clean.matchAll(/(?:\[\s*\d{1,3}\s*\]|[（(]\s*\d{1,3}\s*[）)]|[①②③④⑤⑥⑦⑧⑨⑩⑪⑫⑬⑭⑮⑯⑰⑱⑲⑳]|\d{1,3}[.、)])/g)]
     .filter((match) => match.index === 0 || /[\s。.;；]/.test(clean[match.index - 1] || ""));
   return markers.length >= 2 ? markers : [];
 }
@@ -81,7 +81,7 @@ function splitReferences(value) {
 function extractReferencesFromDocument(text) {
   const normalized = String(text || "")
     .replace(/\s*(参考文献|主要参考文献|引用文献|references|bibliography|works cited)\s*[:：]?\s*/gi, "\n$1\n")
-    .replace(/\s+(?=\[\s*\d+\s*\]\s*)/g, "\n");
+    .replace(/\s+(?=(?:\[\s*\d{1,3}\s*\]|[（(]\s*\d{1,3}\s*[）)]|[①②③④⑤⑥⑦⑧⑨⑩⑪⑫⑬⑭⑮⑯⑰⑱⑲⑳]|\d{1,3}[.、)])\s*)/g, "\n");
   const lines = normalized
     .replace(/\r/g, "")
     .replace(/\u00a0/g, " ")
