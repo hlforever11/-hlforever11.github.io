@@ -43,7 +43,8 @@
     const MAX=20,MAX_SIZE=15*1024*1024,REQUEST_TIMEOUT=9000;
     const TRUSTED_REFERENCE_CACHE=[
       {source:'《图书馆论坛》官网',sourceUrl:'https://tsglt.zslib.com.cn/CN/Y2023/V43/I5/104',title:'ChatGPT类智能对话工具兴起对图书馆行业的机遇与挑战',authors:['李书宁','刘一鸣'],year:2023,container:'图书馆论坛',volume:'43',issue:'5',pages:'104-110',type:'journal-article'},
-      {source:'OpenAI 官方报告',sourceUrl:'https://cdn.openai.com/better-language-models/language_models_are_unsupervised_multitask_learners.pdf',title:'Language Models are Unsupervised Multitask Learners',authors:['Alec Radford','Jeffrey Wu','Rewon Child','David Luan','Dario Amodei','Ilya Sutskever'],year:2019,container:'OpenAI',volume:'',issue:'',pages:'',type:'report'}
+      {source:'OpenAI 官方报告',sourceUrl:'https://cdn.openai.com/better-language-models/language_models_are_unsupervised_multitask_learners.pdf',title:'Language Models are Unsupervised Multitask Learners',authors:['Alec Radford','Jeffrey Wu','Rewon Child','David Luan','Dario Amodei','Ilya Sutskever'],year:2019,container:'OpenAI',volume:'',issue:'',pages:'',type:'report'},
+      {source:'UNESCO 官方文献记录',sourceUrl:'https://unesdoc.unesco.org/ark:/48223/pf0000381137',title:'Recommendation on the Ethics of Artificial Intelligence',authors:['UNESCO'],year:2021,container:'United Nations Educational, Scientific and Cultural Organization',volume:'',issue:'',pages:'',type:'report'}
     ];
     const $=s=>document.querySelector(s), input=$('#input'), counter=$('#counter'), clearBtn=$('#clearBtn'), verifyBtn=$('#verifyBtn'), fileInput=$('#fileInput'), drop=$('#dropZone'), msg=$('#fileMessage');
     const visitCounter=$('#siteCounter'),visitValue=$('#busuanzi_site_pv');
@@ -316,7 +317,8 @@
     }
     function webCanonicalCitation(candidate,parsed){
       const names=(candidate.authors?.length?candidate.authors:splitSubmittedAuthors(parsed.authors)).map(displayName).filter(Boolean),authors=names.join('，'),title=cleanWebField(candidate.title||parsed.title),publicationDate=candidate.citationDate||candidate.publicationDate||parsed.publicationDate||'',accessDate=parsed.accessDate||'';
-      let citation=`${authors?`${authors}. `:''}${title}[EB/OL]`;
+      const type=/report/i.test(String(candidate.type||''))?'R/OL':'EB/OL';
+      let citation=`${authors?`${authors}. `:''}${title}[${type}]`;
       if(publicationDate)citation+=`. (${publicationDate})`;if(accessDate)citation+=`[${accessDate}]`;citation+=`. ${candidate.sourceUrl||parsed.url}`;return`${citation.replace(/\.\./g,'.')}.`;
     }
     async function verifyWebReference(reference,parsed){
@@ -500,7 +502,7 @@
       return{source:'arXiv',candidates:[{source:'arXiv',sources:['arXiv'],exactDoi:false,title:cleanValue(String(entry.querySelector('title')?.textContent||'').replace(/\s+/g,' ')),authors,authorKeys:authors.map(authorKey).filter(Boolean),year:Number(published.slice(0,4))||null,container:'arXiv',volume:'',issue:'',pages:'',doi:doi.toLowerCase(),arxivId:parsed.arxivId,type:'report',sourceUrl:`https://arxiv.org/abs/${parsed.arxivId}`}]};
     }
     function queryTrustedReferenceCache(parsed){
-      const candidates=TRUSTED_REFERENCE_CACHE.filter(record=>diceSimilarity(parsed.title,record.title)>=.96).map(record=>({...record,sources:[record.source],authorKeys:record.authors.map(authorKey).filter(Boolean),exactDoi:false,trustedIndex:true}));
+      const candidates=TRUSTED_REFERENCE_CACHE.filter(record=>diceSimilarity(parsed.title,record.title)>=.96&&(!parsed.url||!record.sourceUrl||comparableUrl(parsed.url)===comparableUrl(record.sourceUrl))).map(record=>({...record,sources:[record.source],authorKeys:record.authors.map(authorKey).filter(Boolean),exactDoi:false,trustedIndex:true}));
       return{source:'已核对权威来源缓存',candidates};
     }
     function buildVerificationPlan(parsed){
@@ -627,10 +629,10 @@
       return out;
     }
     async function verifyOne(reference){
-      const parsed=parseReference(reference),type=String(parsed.type||'').toUpperCase();
-      if(type.includes('/OL')||(parsed.url&&!parsed.doi&&(!type||['EB','DB','CP','N','S','P'].includes(baseReferenceType(type)))))return verifyWebReference(reference,parsed);
+      const parsed=parseReference(reference),type=String(parsed.type||'').toUpperCase(),trusted=queryTrustedReferenceCache(parsed);
+      if(!trusted.candidates.length&&(type.includes('/OL')||(parsed.url&&!parsed.doi&&(!type||['EB','DB','CP','N','S','P'].includes(baseReferenceType(type))))))return verifyWebReference(reference,parsed);
       try{
-        const trusted=queryTrustedReferenceCache(parsed),jobs=trusted.candidates.length?[{source:trusted.source,promise:Promise.resolve(trusted)}]:buildVerificationPlan(parsed).map(provider=>providerJob(provider,parsed));
+        const jobs=trusted.candidates.length?[{source:trusted.source,promise:Promise.resolve(trusted)}]:buildVerificationPlan(parsed).map(provider=>providerJob(provider,parsed));
         if(!jobs.length)return{status:'unverified',confidence:0,submitted:reference,differences:[],note:'已识别文献类型，但当前没有可直接调用的开放结构化目录。未能自动确认不等于文献虚假，请使用下方按类型提供的公开复核入口继续核对。',checkedSources:[],evidenceLinks:scholarlyEvidenceLinks(parsed,parsed.doi)};
         const checks=await Promise.allSettled(jobs.map(job=>job.promise)),available=checks.filter(x=>x.status==='fulfilled').map(x=>x.value.source),all=checks.flatMap(x=>x.status==='fulfilled'?x.value.candidates:[]);
         const candidates=mergeCandidates(all),ranked=candidates.map(candidate=>({candidate,metrics:scoreCandidate(parsed,candidate)})).sort((a,b)=>b.metrics.score-a.metrics.score);
