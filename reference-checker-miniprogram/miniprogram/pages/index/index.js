@@ -33,7 +33,25 @@ Page({
     fileMessageType: "",
     results: [],
     summary: [],
-    showResults: false
+    showResults: false,
+    historyEnabled: false,
+    accountLoading: false,
+    historyCount: 0
+  },
+
+  onLoad() {
+    this.restoreHistoryState();
+  },
+
+  onShow() {
+    const replay = wx.getStorageSync("historyReplay");
+    if (replay) {
+      wx.removeStorageSync("historyReplay");
+      this.resetResults();
+      this.updateInput(replay);
+      wx.pageScrollTo({ scrollTop: 0, duration: 0 });
+    }
+    if (this.data.historyEnabled) this.refreshHistoryCount();
   },
 
   onShareAppMessage() {
@@ -192,6 +210,79 @@ Page({
     return response.result || {};
   },
 
+  restoreHistoryState() {
+    const historyEnabled = wx.getStorageSync("historyEnabled") === true;
+    this.setData({ historyEnabled });
+    if (historyEnabled) this.refreshHistoryCount();
+  },
+
+  async enableHistory() {
+    if (this.data.accountLoading) return;
+    try {
+      this.ensureCloudAvailable();
+      this.setData({ accountLoading: true });
+      const result = await this.callCloud("userHistory", { action: "login" });
+      if (!result.ok) throw new Error(result.message || "登录失败。");
+      wx.setStorageSync("historyEnabled", true);
+      this.setData({
+        historyEnabled: true,
+        historyCount: Number(result.historyCount || 0)
+      });
+      wx.showToast({ title: "历史记录已启用", icon: "success" });
+    } catch (error) {
+      wx.showModal({
+        title: "暂时无法启用",
+        content: error?.message || "请稍后重试。",
+        showCancel: false
+      });
+    } finally {
+      this.setData({ accountLoading: false });
+    }
+  },
+
+  disableHistory() {
+    wx.showModal({
+      title: "停止保存历史记录？",
+      content: "已有记录不会被删除，重新启用后仍可查看。",
+      confirmText: "停止保存",
+      success: ({ confirm }) => {
+        if (!confirm) return;
+        wx.removeStorageSync("historyEnabled");
+        this.setData({ historyEnabled: false });
+      }
+    });
+  },
+
+  openHistory() {
+    wx.navigateTo({ url: "/pages/history/history" });
+  },
+
+  async refreshHistoryCount() {
+    try {
+      const result = await this.callCloud("userHistory", { action: "list" });
+      if (result.ok) this.setData({ historyCount: Number(result.total || 0) });
+    } catch (error) {
+      console.warn("history count refresh failed", error);
+    }
+  },
+
+  async saveHistory(references, results) {
+    if (!this.data.historyEnabled) return;
+    try {
+      const result = await this.callCloud("userHistory", {
+        action: "save",
+        input: references.join("\n"),
+        results
+      });
+      if (result.ok) {
+        this.setData({ historyCount: Number(result.total || this.data.historyCount + 1) });
+      }
+    } catch (error) {
+      console.warn("history save failed", error);
+      wx.showToast({ title: "本次记录未能保存", icon: "none" });
+    }
+  },
+
   async verifyAll() {
     const references = splitReferences(this.data.inputValue);
     if (!references.length) return;
@@ -256,6 +347,7 @@ Page({
       canVerify: true,
       progressText: `已完成 ${references.length} 条`
     });
+    await this.saveHistory(references, output.filter(Boolean));
     wx.pageScrollTo({ selector: "#results", duration: 260 });
   },
 
