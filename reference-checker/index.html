@@ -47,8 +47,8 @@
       {source:'OpenAI 官方报告',sourceUrl:'https://cdn.openai.com/better-language-models/language_models_are_unsupervised_multitask_learners.pdf',title:'Language Models are Unsupervised Multitask Learners',authors:['Alec Radford','Jeffrey Wu','Rewon Child','David Luan','Dario Amodei','Ilya Sutskever'],year:2019,container:'OpenAI',volume:'',issue:'',pages:'',type:'report'},
       {source:'UNESCO 官方文献记录',sourceUrl:'https://unesdoc.unesco.org/ark:/48223/pf0000381137',title:'Recommendation on the Ethics of Artificial Intelligence',authors:['UNESCO'],year:2021,container:'United Nations Educational, Scientific and Cultural Organization',volume:'',issue:'',pages:'',type:'report'},
       {source:'美国图书馆协会 ACRL 官方报告',sourceUrl:'https://www.ala.org/acrl/publications/whitepapers/presidential',title:'Presidential Committee on Information Literacy: Final Report',authors:['American Library Association'],year:1989,container:'American Library Association',volume:'',issue:'',pages:'',type:'report'},
-      {source:'Journal of Information Literacy 官方记录',sourceUrl:'https://journals.cilip.org.uk/jil/article/view/14',title:'Artificial intelligence skills and knowledge in libraries: Experiences and critical impressions from a learning circle',authors:['Karin Andersdotter'],year:2023,container:'Journal of Information Literacy',volume:'17',issue:'2',pages:'107-130',doi:'10.11645/17.2.14',type:'journal-article'},
-      {source:'Taylor & Francis DOI 正式题录',sourceUrl:'https://doi.org/10.1080/1369118X.2024.2382224',title:"Understanding algorithmic recommendations: A qualitative study on children's algorithm literacy in Switzerland",authors:['Judith Ernst'],year:2024,container:'Information, Communication & Society',volume:'28',issue:'11',pages:'1945-1961',doi:'10.1080/1369118X.2024.2382224',type:'journal-article'},
+      {source:'Journal of Information Literacy 官方记录',sourceUrl:'https://journals.cilip.org.uk/jil/article/view/14',title:'Artificial intelligence skills and knowledge in libraries: Experiences and critical impressions from a learning circle',authors:['Karolina Andersdotter'],year:2023,container:'Journal of Information Literacy',volume:'17',issue:'2',pages:'107-130',doi:'10.11645/17.2.14',type:'journal-article'},
+      {source:'Taylor & Francis DOI 正式题录',sourceUrl:'https://doi.org/10.1080/1369118X.2024.2382224',title:"Understanding algorithmic recommendations: A qualitative study on children's algorithm literacy in Switzerland",authors:['Julian Ernst'],year:2024,container:'Information, Communication & Society',volume:'28',issue:'11',pages:'1945-1961',doi:'10.1080/1369118X.2024.2382224',type:'journal-article'},
       {source:'中国图书馆学报正式题录',sourceUrl:'https://doi.org/10.13530/j.cnki.jlis.2024030',title:'数智时代的人工智能素养：内涵、框架与实施路径',authors:['蔡迎春','张静蓓','虞晨琳'],year:2024,container:'中国图书馆学报',volume:'50',issue:'4',pages:'71-84',doi:'10.13530/j.cnki.jlis.2024030',type:'journal-article'},
       {source:'中国电化教育正式题录',sourceUrl:'https://zdjy.cbpt.cnki.net/portal/journal/portal/client/paper/75e7535193def56ba7216fbdeadee721',title:'北美地区学生信息素养研究现状及其启示',authors:['李毅','何莎薇','邱兰欢'],year:2018,container:'中国电化教育',volume:'',issue:'8',pages:'67-72',type:'journal-article'},
       {source:'《图书与情报》官网目录',sourceUrl:'https://tsyqb.gslib.com.cn/CN/volumn/volumn_1222.shtml',title:'泛信息素养的概念内涵及其内容要素解析',authors:['刘慧'],year:2020,container:'图书与情报',volume:'40',issue:'4',pages:'67-73',doi:'10.11968/tsyqb.1003-6938.2020063',type:'journal-article'},
@@ -438,7 +438,7 @@
       if(/^[\p{Script=Han}\s·]+$/u.test(value))return normalizeText(value);
       if(value.includes(','))return normalizeText(value.split(',')[0]);
       const last=parts.at(-1)||value;
-      if(/^[A-Z](?:[A-Z.]*)?$/i.test(last)&&parts.length>1)return normalizeText(parts[0]);
+      if(/^[A-Z](?:[A-Z.]*)?$/.test(last)&&parts.length>1)return normalizeText(parts[0]);
       return normalizeText(last);
     }
     function crossrefCandidate(item,exactDoi=false){
@@ -582,7 +582,7 @@
       return'';
     }
     function scoreCandidate(parsed,candidate){
-      const titleScore=parsed.title?diceSimilarity(parsed.title,candidate.title):(normalizeText(parsed.raw).includes(normalizeText(candidate.title))?.92:0);
+      const titleScore=parsed.title?Math.max(...[candidate.title,...(candidate.alternateTitles||[])].map(title=>diceSimilarity(parsed.title,title))):(normalizeText(parsed.raw).includes(normalizeText(candidate.title))?.92:0);
       const authorScore=authorAgreement(parsed,candidate),containerScore=parsed.container&&candidate.container?diceSimilarity(parsed.container,candidate.container):.5,identifierPairs=[['doi',parsed.doi,candidate.doi],['isbn',parsed.isbn,candidate.isbn],['pmid',parsed.pmid,candidate.pmid],['arxiv',parsed.arxivId,candidate.arxivId]].filter(([,submitted,verified])=>submitted&&verified),exactIdentifiers=identifierPairs.filter(([,submitted,verified])=>normalizeText(submitted)===normalizeText(verified)),identifierExact=exactIdentifiers.length>0,identifierMismatch=identifierPairs.length>0&&!identifierExact;
       const weights=[];
       if(parsed.title||candidate.title)weights.push([titleScore,.62]);
@@ -639,8 +639,8 @@
     }
     function differences(parsed,candidate,metrics){
       const out=[],add=(field,submitted,verified)=>out.push({field,submitted:submitted||'未提供',verified:verified||'未提供'}),same=(a,b)=>normalizeText(a)===normalizeText(b),sameNumberField=(a,b)=>{const left=cleanValue(a),right=cleanValue(b);return/^\d+$/.test(left)&&/^\d+$/.test(right)?Number(left)===Number(right):same(left,right)};
-      const submittedTitle=normalizeText(parsed.title),verifiedTitle=normalizeText(candidate.title),oneContainsOther=submittedTitle&&verifiedTitle&&(submittedTitle.includes(verifiedTitle)||verifiedTitle.includes(submittedTitle));
-      if(parsed.title&&candidate.title&&metrics.titleScore<.96&&metrics.titleScore>.58&&!oneContainsOther)add('篇名',parsed.title,candidate.title);
+      const submittedTitle=normalizeText(parsed.title),verifiedTitle=normalizeText(candidate.title),canonicalTitleScore=diceSimilarity(parsed.title,candidate.title),oneContainsOther=submittedTitle&&verifiedTitle&&(submittedTitle.includes(verifiedTitle)||verifiedTitle.includes(submittedTitle));
+      if(parsed.title&&candidate.title&&canonicalTitleScore<.96&&canonicalTitleScore>.58&&!oneContainsOther)add('篇名',parsed.title,candidate.title);
       if(parsed.authors&&candidate.authors?.length&&metrics.authorScore<.55&&metrics.titleScore>.88)add('作者',parsed.authors,candidate.authors.map(displayName).join('，'));
       if(parsed.year&&candidate.year&&parsed.year!==candidate.year)add('年份',parsed.year,candidate.year);
       if(parsed.container&&candidate.container&&metrics.containerScore<.76&&metrics.titleScore>.86)add('刊名/来源',parsed.container,candidate.container);
