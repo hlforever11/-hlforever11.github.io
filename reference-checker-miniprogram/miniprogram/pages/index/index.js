@@ -323,6 +323,11 @@ Page({
           });
           output[index] = this.prepareResult(result, references[index], index);
         } catch (error) {
+          console.error("verifyReference cloud call failed", {
+            index,
+            reference: references[index],
+            error
+          });
           output[index] = this.prepareResult({
             status: "error",
             confidence: 0,
