@@ -19,7 +19,7 @@
 </head>
 <body>
   <header><div class="brand"><b>文证</b> · <span>参考文献核验</span></div><nav><a href="#tool">开始核验</a><a href="#limits">使用边界</a></nav></header>
-  <section class="hero"><div class="eyebrow">Evidence before confidence</div><h1>让每一条参考文献<br>都经得起核验</h1><p>上传 DOCX、文字版 PDF、TXT 文档，或粘贴最多 20 条中英文参考文献。系统分层核对中文期刊、DOI 元数据与开放学术数据库；含网址的 [EB/OL] 文献会读取原始网页，核对题名、作者与<span class="nowrap">发布日期。</span></p></section>
+  <section class="hero"><div class="eyebrow">Evidence before confidence</div><h1>让每一条参考文献<br>都经得起核验</h1><p>上传 DOCX、文字版 PDF、TXT 文档，或粘贴最多 20 条中英文参考文献。系统先依据篇名、作者、来源、DOI 和网址等身份字段判断文献是否真实存在，再单独检查年份、卷期页和文献类型等著录准确性。</p></section>
   <main>
     <section class="workspace" id="tool" aria-label="参考文献核验工具">
       <div class="workspace-head"><div><h2>提交参考文献</h2><p>文档在当前浏览器解析；中文期刊和含网址的网络文献会自动走专用核验流程</p></div><button class="link-btn" id="sampleBtn" type="button">填入示例</button></div>
@@ -32,7 +32,7 @@
     </section>
     <div class="trust"><span><b>✓</b> 不把“数据库未收录”直接判为虚假</span><span><b>✓</b> 中文增强：期刊名录 · DOI 元数据 · 原始网页 · 多源复核入口</span></div>
     <section class="results hidden" id="results"><div class="results-head"><h2>核验结果</h2><div class="progress" id="progress"></div></div><div class="summary" id="summary"></div><div id="cards"></div></section>
-    <section class="boundary" id="limits"><div class="kicker">BOUNDARIES</div><h2>“未核实”不等于“虚假”</h2><p>网络文献优先读取所提交的原始网址；若目标网站允许跨域访问，系统会直接比对页面题名、作者和发布日期。带有永久标识的机构库文献若禁止跨域读取，系统会优先改查同一出版机构的公开书目接口。其他仍无法读取的网站会保留官网与搜索引擎复核入口，不会把技术性拦截误判成文献虚假。访问日期只能检查时间先后是否合理，无法由今天的网页反推当日访问事实。</p></section>
+    <section class="boundary" id="limits"><div class="kicker">BOUNDARIES</div><h2>“暂未证实”不等于“虚假”</h2><p>真实性置信度只依据篇名、作者、来源、永久标识和原始网址等作品身份字段及证据强度计算。年份、卷期页、文献类型和格式差异会在确认是同一作品后单独列为著录准确性问题，不会反向降低真实性。若来源暂时不可访问或未被数据库收录，系统只会标记为“暂未证实”，并保留官网与搜索引擎复核入口。</p></section>
   </main>
   <footer><div>核验请求由浏览器直接发送；网页文献优先访问所提交的原始官网。重要用途请以出版者原始记录为准。</div><div class="footer-meta"><a class="author-email" href="mailto:linhu@scu.edu.cn" aria-label="网站联系邮箱">linhu@scu.edu.cn</a><span class="site-counter" id="siteCounter" aria-live="polite" title="本站累计页面访问量"><span class="dot" aria-hidden="true">·</span><span>累计访问 <span class="site-counter-value" id="busuanzi_site_pv">—</span> 次</span></span></div></footer>
   <script src="./vendor/mammoth.browser.min.js"></script>
@@ -93,13 +93,13 @@
     function extractReferences(text){const normalized=text.replace(/\s*(参考文献|主要参考文献|引用文献|references|bibliography|works cited)\s*[:：]?\s*/gi,'\n$1\n').replace(/\s+(?=\[\s*\d+\s*\]\s*)/g,'\n');const lines=normalized.replace(/\r/g,'').replace(/\u00a0/g,' ').split('\n').map(x=>x.replace(/\s+/g,' ').trim());let heading=-1;lines.forEach((x,i)=>{/^(?:参考文献|主要参考文献|引用文献|references|bibliography|works cited)\s*[:：]?$/i.test(x)&&(heading=i)});const source=(heading>=0?lines.slice(heading+1):lines).filter(Boolean),out=[];let current='';if(source.some(x=>numberedReferenceStart.test(x))){source.forEach(x=>{if(numberedReferenceStart.test(x)||looksLikeReferenceStart(x)){if(current)out.push(current.trim());current=x}else if(current)current+=' '+x});if(current)out.push(current.trim())}else out.push(...source.filter(x=>bibliographicCue(x)&&(/[.。]/.test(x)||/10\.\d{4,9}\//i.test(x))));if(!out.length)throw Error('未识别出参考文献。请确认文档含“参考文献”标题及带序号的条目，扫描版 PDF 请先做文字识别。');return out}
     async function handleFile(file){try{if(file.size>MAX_SIZE)throw Error('文件不能超过 15 MB。');const ext=file.name.split('.').pop().toLowerCase();if(!['docx','pdf','txt'].includes(ext))throw Error('暂只支持 DOCX、文字版 PDF 和 TXT。');fileState('正在本地读取文档…');let text='';if(ext==='txt')text=new TextDecoder('utf-8').decode(await file.arrayBuffer());else if(ext==='docx'){if(!window.mammoth)throw Error('DOCX 解析组件加载失败，请刷新后重试。');text=(await window.mammoth.extractRawText({arrayBuffer:await file.arrayBuffer()})).value}else{const pdf=await pdfjsLib.getDocument({data:new Uint8Array(await file.arrayBuffer())}).promise;if(pdf.numPages>100)throw Error('PDF 超过 100 页，请只保留参考文献部分。');const pages=[];for(let n=1;n<=pdf.numPages;n++){const content=await(await pdf.getPage(n)).getTextContent();pages.push(content.items.map(i=>i.str+(i.hasEOL?'\n':' ')).join(''))}text=pages.join('\n')};const list=extractReferences(text),shown=list.slice(0,MAX);input.value=shown.join('\n');update();fileState(`从 ${file.name} 识别出 ${list.length} 条参考文献，已载入${list.length>MAX?'前 20 条':'待核验区'}。`,'success')}catch(e){fileState(e.message||'读取文档失败。','error')}finally{fileInput.value=''}}
     const esc=s=>String(s??'').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
-    const meta={verified:['真实且字段一致','✓'],partial:['真实，部分字段待复核','✓'],corrected:['真实但需要修正','!'],review:['找到近似记录','?'],unverified:['暂未核实','—'],error:['核验失败','×']};
+    const meta={verified:['已确认真实，著录一致','✓'],partial:['已确认真实，部分字段待复核','✓'],corrected:['已确认真实，著录需修正','!'],review:['真实性需人工复核','?'],unverified:['暂未证实','—'],error:['核验失败','×']};
     function card(r,i){
       const m=meta[r.status]||meta.error,diffs=(r.differences||[]).map(d=>`<div class="diff"><b>${esc(d.field)}</b><span>提交：${esc(d.submitted)}</span><span>核实：${esc(d.verified)}</span></div>`).join('');
       const links=(r.evidenceLinks||[]).map(link=>`<a target="_blank" rel="noopener" href="${esc(link.url)}">${esc(link.label)} ↗</a>`).join('');
-      return `<article class="result"><div class="result-top"><span class="status ${r.status==='error'?'error-status':r.status}">${m[1]} ${m[0]}</span><span class="confidence">第 ${i+1} 条 · 置信度 ${Math.round((r.confidence||0)*100)}%</span></div><p class="submitted">${esc(r.submitted)}</p><p class="note">${esc(r.note)}</p>${diffs?`<div class="diffs">${diffs}</div>`:''}${r.canonical?`<div class="canonical"><b>建议著录（GB/T 7714 风格）</b>${esc(r.canonical)}</div>`:''}${r.sourceUrl?`<a class="source" target="_blank" rel="noopener" href="${esc(r.sourceUrl)}">查看 ${esc(r.source||'来源')} 原始记录 ↗</a>`:''}${links?`<div class="evidence-links">${links}</div>`:''}</article>`
+      return `<article class="result"><div class="result-top"><span class="status ${r.status==='error'?'error-status':r.status}">${m[1]} ${m[0]}</span><span class="confidence">第 ${i+1} 条 · 真实性置信度 ${Math.round((r.authenticityConfidence??r.confidence??0)*100)}%</span></div><p class="submitted">${esc(r.submitted)}</p><p class="note">${esc(r.note)}</p>${diffs?`<div class="diffs">${diffs}</div>`:''}${r.canonical?`<div class="canonical"><b>建议著录（GB/T 7714 风格）</b>${esc(r.canonical)}</div>`:''}${r.sourceUrl?`<a class="source" target="_blank" rel="noopener" href="${esc(r.sourceUrl)}">查看 ${esc(r.source||'来源')} 原始记录 ↗</a>`:''}${links?`<div class="evidence-links">${links}</div>`:''}</article>`
     }
-    function render(all){const counts={verified:0,partial:0,corrected:0,review:0,unverified:0,error:0};all.forEach(x=>counts[x.status]=(counts[x.status]||0)+1);$('#summary').innerHTML=[['已确认',counts.verified+counts.partial],['需修正',counts.corrected],['待复核',counts.review],['未核实/失败',counts.unverified+counts.error]].map(x=>`<div><strong>${x[1]}</strong><span>${x[0]}</span></div>`).join('');$('#cards').innerHTML=all.map(card).join('')}
+    function render(all){const counts={verified:0,partial:0,corrected:0,review:0,unverified:0,error:0};all.forEach(x=>counts[x.status]=(counts[x.status]||0)+1);$('#summary').innerHTML=[['已确认真实',counts.verified+counts.partial],['真实但需修正',counts.corrected],['需人工复核',counts.review],['暂未证实/失败',counts.unverified+counts.error]].map(x=>`<div><strong>${x[1]}</strong><span>${x[0]}</span></div>`).join('');$('#cards').innerHTML=all.map(card).join('')}
     const normalizeText=value=>String(value??'').normalize('NFKC').toLowerCase().replace(/[\s\u3000\p{P}\p{S}]+/gu,'');
     const cleanValue=value=>String(value??'').replace(/^[\s.,，。;；:：/／]+|[\s.,，。;；:：]+$/g,'').trim();
     function diceSimilarity(a,b){
@@ -323,9 +323,9 @@
       const evidenceLinks=webEvidenceLinks(parsed);
       if(!parsed.url)return{status:'unverified',confidence:0,submitted:reference,differences:[],note:'识别为网络文献，但未提取到可访问的 http/https 网址，无法读取原始页面。',checkedSources:[],evidenceLinks};
       try{
-        const candidate=await resolvedWebCandidate(parsed),titleScore=webTitleAgreement(parsed.title,candidate.title),authorScore=webAuthorAgreement(parsed.authors,candidate.authors),dateScore=webDateAgreement(parsed.publicationDate,candidate),weights=[[1,.22],[titleScore,.55]];
-        if(authorScore!==null)weights.push([authorScore,.12]);if(dateScore!==null)weights.push([dateScore,.11]);
-        const confidence=weights.reduce((sum,[value,weight])=>sum+value*weight,0)/weights.reduce((sum,[,weight])=>sum+weight,0),diffs=[],add=(field,submitted,verified)=>diffs.push({field,submitted:submitted||'未提供',verified:verified||'未提供'});
+        const candidate=await resolvedWebCandidate(parsed),titleScore=webTitleAgreement(parsed.title,candidate.title),authorScore=webAuthorAgreement(parsed.authors,candidate.authors),dateScore=webDateAgreement(parsed.publicationDate,candidate),weights=[[1,.3],[titleScore,.55]];
+        if(authorScore!==null)weights.push([authorScore,.15]);
+        const confidence=Math.min(.98,weights.reduce((sum,[value,weight])=>sum+value*weight,0)/weights.reduce((sum,[,weight])=>sum+weight,0)),diffs=[],add=(field,submitted,verified)=>diffs.push({field,submitted:submitted||'未提供',verified:verified||'未提供'});
         const submittedTitle=normalizeText(parsed.title),verifiedTitle=normalizeText(candidate.title);
         if(parsed.title&&candidate.title&&submittedTitle!==verifiedTitle&&titleScore>=.72)add('题名（官网全称）',parsed.title,candidate.title);
         if(parsed.authors&&candidate.authors.length&&authorScore<.72)add('作者',parsed.authors,candidate.authors.map(displayName).join('，'));
@@ -337,12 +337,13 @@
         if(titleScore<.72)return{status:'review',confidence,submitted:reference,differences:diffs,note:`已成功读取该网址，但提交题名与页面题名匹配不足；网址可能指向了不同内容，请人工核对。`,canonical:webCanonicalCitation(candidate,parsed),sourceUrl:candidate.sourceUrl,source,checkedSources:[source],evidenceLinks};
         const missing=[];if(parsed.authors&&!candidate.authors.length)missing.push('作者');if(parsed.publicationDate&&!candidate.publicationDate)missing.push('发布日期');
         const status=logicalDateProblem?'corrected':diffs.length?'corrected':missing.length?'partial':'verified',matchNote=matched.length?`，${matched.join('和')}一致`:'';
-        let note=candidate.officialRecord?`已按 ARK 永久标识在${source}查到同一记录，题名、责任机构和链接可确认${matchNote}。UNESDOC 原页面虽能正常打开，但禁止本站跨域读取；本站现改用 UNESCO 自己的公开书目接口核验。`:`已直接读取${source}，网址当前可访问，页面题名可确认${matchNote}。`;
+        let note=candidate.officialRecord?`已按 ARK 永久标识在${source}查到同一记录，题名、责任机构和链接可确认${matchNote}。UNESDOC 原页面虽能正常打开，但禁止本站跨域读取；本站现改用 UNESCO 自己的公开书目接口核验。`:`已直接读取${source}，通过网址、页面题名和作者等身份字段确认该文献真实存在${matchNote}。`;
         if(candidate.officialRecord&&candidate.adoptionDate&&candidate.catalogYear&&candidate.adoptionDate.slice(0,4)!==candidate.catalogYear)note+=` 官方记录注明该建议于 ${candidate.adoptionDate} 通过，当前版本的目录出版年为 ${candidate.catalogYear}；提交的 ${parsed.publicationDate||candidate.adoptionDate.slice(0,4)} 作为通过年份可以接受。`;
         if(submittedTitle!==verifiedTitle&&titleScore>=.72)note+=' 提交题名是官网题名的缩写或近似写法，已给出官网完整题名。';
+        if(diffs.length)note+=' 上述著录差异不降低真实性置信度，但建议按原始页面修正。';
         if(missing.length)note+=` 页面未提供可自动读取的${missing.join('、')}，相关字段仍需人工复核。`;
         if(parsed.accessDate&&!logicalDateProblem)note+=' 访问日期的先后关系合理；该日期无法由今天的页面反推，只作逻辑校验。';
-        return{status,confidence,submitted:reference,differences:diffs,note,canonical:webCanonicalCitation(candidate,parsed),sourceUrl:candidate.sourceUrl,source,checkedSources:[source],evidenceLinks};
+        return{status,confidence,authenticityConfidence:confidence,submitted:reference,differences:diffs,accuracyDifferences:diffs,authenticityBasis:['提交网址可以访问','页面篇名高度一致',...(authorScore!==null&&authorScore>=.5?['作者信息支持']:[])],note,canonical:webCanonicalCitation(candidate,parsed),sourceUrl:candidate.sourceUrl,source,checkedSources:[source],evidenceLinks};
       }catch(e){
         const reason=e.name==='AbortError'?'读取原始网页超时':e.message||'浏览器无法读取原始网页';
         return{status:'unverified',confidence:0,submitted:reference,differences:[],note:`${reason}。目标网站可能暂时不可用或禁止跨域读取；本站不会因此把文献判为虚假，请通过原网址或搜索引擎入口继续核对。`,sourceUrl:parsed.url,source:'提交的原始网址',checkedSources:[],evidenceLinks};
@@ -490,13 +491,13 @@
       const endpoint=new URL('https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esummary.fcgi');endpoint.searchParams.set('db','pubmed');endpoint.searchParams.set('id',parsed.pmid);endpoint.searchParams.set('retmode','json');
       const data=await fetchJson(endpoint.href),item=data?.result?.[parsed.pmid];if(!item)return{source:'PubMed',candidates:[]};
       const authors=(item.authors||[]).map(author=>cleanValue(author.name)).filter(Boolean),doi=(item.articleids||[]).find(entry=>entry.idtype==='doi')?.value||'';
-      return{source:'PubMed',candidates:[{source:'PubMed',sources:['PubMed'],exactDoi:!!(parsed.doi&&doi&&parsed.doi===doi.toLowerCase()),title:cleanValue(item.title),authors,authorKeys:authors.map(authorKey).filter(Boolean),year:Number(String(item.pubdate||'').match(/(?:18|19|20)\d{2}/)?.[0])||null,container:cleanValue(item.fulljournalname||item.source),volume:cleanValue(item.volume),issue:cleanValue(item.issue),pages:cleanValue(item.pages).replace(/[–—]/g,'-'),doi:String(doi).toLowerCase(),type:'journal-article',sourceUrl:`https://pubmed.ncbi.nlm.nih.gov/${parsed.pmid}/`}]};
+      return{source:'PubMed',candidates:[{source:'PubMed',sources:['PubMed'],exactDoi:!!(parsed.doi&&doi&&parsed.doi===doi.toLowerCase()),title:cleanValue(item.title),authors,authorKeys:authors.map(authorKey).filter(Boolean),year:Number(String(item.pubdate||'').match(/(?:18|19|20)\d{2}/)?.[0])||null,container:cleanValue(item.fulljournalname||item.source),volume:cleanValue(item.volume),issue:cleanValue(item.issue),pages:cleanValue(item.pages).replace(/[–—]/g,'-'),doi:String(doi).toLowerCase(),pmid:parsed.pmid,type:'journal-article',sourceUrl:`https://pubmed.ncbi.nlm.nih.gov/${parsed.pmid}/`}]};
     }
     async function queryArxiv(parsed){
       if(!parsed.arxivId)return{source:'arXiv',candidates:[]};
       const xml=await fetchText(`https://export.arxiv.org/api/query?id_list=${encodeURIComponent(parsed.arxivId)}`),doc=new DOMParser().parseFromString(xml,'application/xml'),entry=doc.querySelector('entry');if(!entry)return{source:'arXiv',candidates:[]};
       const authors=[...entry.querySelectorAll('author > name')].map(node=>cleanValue(node.textContent)).filter(Boolean),published=cleanValue(entry.querySelector('published')?.textContent),doi=cleanValue(entry.querySelector('doi')?.textContent);
-      return{source:'arXiv',candidates:[{source:'arXiv',sources:['arXiv'],exactDoi:false,title:cleanValue(String(entry.querySelector('title')?.textContent||'').replace(/\s+/g,' ')),authors,authorKeys:authors.map(authorKey).filter(Boolean),year:Number(published.slice(0,4))||null,container:'arXiv',volume:'',issue:'',pages:'',doi:doi.toLowerCase(),type:'report',sourceUrl:`https://arxiv.org/abs/${parsed.arxivId}`}]};
+      return{source:'arXiv',candidates:[{source:'arXiv',sources:['arXiv'],exactDoi:false,title:cleanValue(String(entry.querySelector('title')?.textContent||'').replace(/\s+/g,' ')),authors,authorKeys:authors.map(authorKey).filter(Boolean),year:Number(published.slice(0,4))||null,container:'arXiv',volume:'',issue:'',pages:'',doi:doi.toLowerCase(),arxivId:parsed.arxivId,type:'report',sourceUrl:`https://arxiv.org/abs/${parsed.arxivId}`}]};
     }
     function queryTrustedReferenceCache(parsed){
       const candidates=TRUSTED_REFERENCE_CACHE.filter(record=>diceSimilarity(parsed.title,record.title)>=.96).map(record=>({...record,sources:[record.source],authorKeys:record.authors.map(authorKey).filter(Boolean),exactDoi:false,trustedIndex:true}));
@@ -532,7 +533,7 @@
         prior.sources=[...new Set([...prior.sources,...candidate.sources])];
         prior.source=prior.sources.join(' + ');prior.exactDoi=prior.exactDoi||candidate.exactDoi;
         prior.partialFields=[...new Set([...(prior.partialFields||[]),...(candidate.partialFields||[])])];
-        for(const field of ['title','authors','authorKeys','year','container','volume','issue','pages','doi','type','sourceUrl'])if(!prior[field]&&candidate[field])prior[field]=candidate[field];
+        for(const field of ['title','authors','authorKeys','year','container','volume','issue','pages','doi','isbn','pmid','arxivId','type','sourceUrl'])if(!prior[field]&&candidate[field])prior[field]=candidate[field];
       }
       return[...merged.values()];
     }
@@ -555,34 +556,24 @@
       if(/article|journal/.test(type))return'J';
       return'';
     }
-    function typeAgreement(submitted,candidate){
-      if(!submitted||!candidate)return .7;
-      const expected=baseReferenceType(submitted),type=String(candidate).toLowerCase();
-      if(expected==='J')return/article|journal/.test(type)?1:0;
-      if(expected==='C')return/proceedings|conference|article/.test(type)?1:0;
-      if(expected==='M')return/book/.test(type)?1:0;
-      if(expected==='D')return/dissertation|thesis/.test(type)?1:0;
-      if(expected==='R')return/report|preprint/.test(type)?1:0;
-      if(expected==='S')return/standard/.test(type)?1:0;
-      if(expected==='P')return/patent/.test(type)?1:0;
-      if(expected==='N')return/newspaper/.test(type)?1:0;
-      return .7;
-    }
     function scoreCandidate(parsed,candidate){
       const titleScore=parsed.title?diceSimilarity(parsed.title,candidate.title):(normalizeText(parsed.raw).includes(normalizeText(candidate.title))?.92:0);
-      const authorScore=authorAgreement(parsed,candidate),yearScore=parsed.year&&candidate.year?(parsed.year===candidate.year?1:0):.5,containerScore=parsed.container&&candidate.container?diceSimilarity(parsed.container,candidate.container):.5,typeScore=typeAgreement(parsed.type,candidate.type),doiScore=parsed.doi&&candidate.doi?(parsed.doi===candidate.doi?1:0):.5;
+      const authorScore=authorAgreement(parsed,candidate),containerScore=parsed.container&&candidate.container?diceSimilarity(parsed.container,candidate.container):.5,identifierPairs=[['doi',parsed.doi,candidate.doi],['isbn',parsed.isbn,candidate.isbn],['pmid',parsed.pmid,candidate.pmid],['arxiv',parsed.arxivId,candidate.arxivId]].filter(([,submitted,verified])=>submitted&&verified),exactIdentifiers=identifierPairs.filter(([,submitted,verified])=>normalizeText(submitted)===normalizeText(verified)),identifierExact=exactIdentifiers.length>0,identifierMismatch=identifierPairs.length>0&&!identifierExact;
       const weights=[];
-      if(parsed.title||candidate.title)weights.push([titleScore,parsed.doi?.49:.68]);
-      if(parsed.authors&&candidate.authors?.length)weights.push([authorScore,.14]);
-      if(parsed.year&&candidate.year)weights.push([yearScore,.09]);
-      if(parsed.container&&candidate.container)weights.push([containerScore,.05]);
-      if(parsed.type&&candidate.type)weights.push([typeScore,.03]);
-      if(parsed.doi)weights.push([doiScore,.20]);
+      if(parsed.title||candidate.title)weights.push([titleScore,.62]);
+      if(parsed.authors&&candidate.authors?.length)weights.push([authorScore,.23]);
+      if(parsed.container&&candidate.container)weights.push([containerScore,.15]);
       let score=weights.reduce((sum,[value,weight])=>sum+value*weight,0)/Math.max(.01,weights.reduce((sum,[,weight])=>sum+weight,0));
-      if(parsed.doi===candidate.doi&&candidate.exactDoi&&(!parsed.title||titleScore>.72))score=Math.max(score,.94);
-      if(titleScore<.48&&parsed.title)score=Math.min(score,.57);
-      if(typeScore===0&&titleScore<.92)score=Math.min(score,.67);
-      return{score:Math.max(0,Math.min(1,score)),titleScore,authorScore,yearScore,containerScore,typeScore,doiScore};
+      const authorCorroborates=parsed.authors&&candidate.authors?.length&&authorScore>=.65,containerCorroborates=parsed.container&&candidate.container&&containerScore>=.82,strongTextIdentity=titleScore>=.94&&(authorCorroborates||containerCorroborates),hasCorroboration=identifierExact||authorCorroborates||containerCorroborates;
+      if(identifierExact&&(!parsed.title||titleScore>=.72))score=Math.max(score,.97);
+      else if(candidate.trustedIndex&&titleScore>=.9&&(authorScore>=.55||containerScore>=.7))score=Math.max(score,.96);
+      else if(strongTextIdentity)score=Math.max(score,.9);
+      else if(identifierMismatch)score=Math.min(score,.64);
+      if(!hasCorroboration&&!candidate.trustedIndex)score=Math.min(score,.79);
+      if(titleScore<.58&&parsed.title)score=Math.min(score,.62);
+      if(parsed.authors&&candidate.authors?.length&&authorScore===0&&!identifierExact&&titleScore<.97)score=Math.min(score,.66);
+      const basis=[];if(identifierExact)basis.push(`标识符一致（${exactIdentifiers.map(([name])=>name.toUpperCase()).join('、')}）`);if(titleScore>=.86)basis.push('篇名高度一致');if(authorCorroborates)basis.push('作者信息支持');if(containerCorroborates)basis.push('来源信息支持');if(candidate.trustedIndex)basis.push('权威来源记录');
+      return{score:Math.max(0,Math.min(.99,score)),titleScore,authorScore,containerScore,identifierExact,identifierMismatch,basis};
     }
     function displayName(name){
       const value=cleanValue(name),parts=value.split(/\s+/).filter(Boolean);
@@ -649,12 +640,12 @@
         const best=ranked[0],confidence=best.metrics.score,evidenceLinks=scholarlyEvidenceLinks(parsed,best.candidate.doi||parsed.doi);
         if(confidence<.67)return{status:'unverified',confidence,submitted:reference,differences:[],note:`已查询 ${checked.join('、')}，但没有找到足以确认的同一文献；这可能是未收录或著录信息不足，不应仅据此判为虚假。`,checkedSources:checked,evidenceLinks};
         const diffs=differences(parsed,best.candidate,best.metrics),source=best.candidate.sources.join(' + ');
-        if(confidence<.80)return{status:'review',confidence,submitted:reference,differences:diffs,note:`在 ${source} 找到近似记录，匹配度尚不足以自动确认，请人工复核。`,canonical:canonicalCitation(best.candidate,parsed),sourceUrl:best.candidate.sourceUrl,source,checkedSources:checked,evidenceLinks};
+        if(confidence<.80)return{status:'review',confidence,authenticityConfidence:confidence,submitted:reference,differences:diffs,accuracyDifferences:diffs,note:`在 ${source} 找到近似记录，但身份字段匹配度尚不足以自动确认，请人工复核。`,canonical:canonicalCitation(best.candidate,parsed),sourceUrl:best.candidate.sourceUrl,source,checkedSources:checked,evidenceLinks};
         const partialFields=[...new Set([...(best.candidate.partialFields||[]),...missingMetadataFields(parsed,best.candidate)])],status=diffs.length?'corrected':partialFields.length?'partial':'verified';
-        let note=diffs.length?`已在 ${source} 找到同一文献，以下字段与来源记录不一致。`:`已在 ${source} 找到高度一致的记录。`;
+        let note=diffs.length?`已在 ${source} 确认该文献真实存在；以下差异不降低真实性置信度，但建议按来源记录修正著录。`:`已在 ${source} 找到身份字段高度一致的记录，可确认该文献真实存在。`;
         if(partialFields.length&&!diffs.length)note=source==='DOI 注册元数据'?`已由 DOI 注册元数据确认篇名、年份、期刊、卷期、首页和 DOI；注册记录未完整提供${partialFields.join('、')}，本站保留原著录，并提供公开检索入口供继续核对。`:`已在 ${source} 通过篇名、作者和年份等核心字段确认该文献真实存在；该记录未完整提供${partialFields.join('、')}，这些字段暂时保留原著录，仍建议通过原始文献或下方公开检索入口复核。`;
         if(partialFields.length&&diffs.length)note+=source.includes('DOI 注册元数据')?` DOI 注册记录未完整提供${partialFields.join('、')}，相关原著录仍需通过下方公开检索入口复核。`:` 来源记录未完整提供${partialFields.join('、')}，相关原著录仍需通过下方公开检索入口复核。`;
-        return{status,confidence,submitted:reference,differences:diffs,note,canonical:canonicalCitation(best.candidate,parsed),sourceUrl:best.candidate.sourceUrl,source,checkedSources:checked,evidenceLinks};
+        return{status,confidence,authenticityConfidence:confidence,submitted:reference,differences:diffs,accuracyDifferences:diffs,authenticityBasis:best.metrics.basis,note,canonical:canonicalCitation(best.candidate,parsed),sourceUrl:best.candidate.sourceUrl,source,checkedSources:checked,evidenceLinks};
       }catch(e){
         return{status:'error',confidence:0,submitted:reference,differences:[],note:`核验失败：${e.name==='AbortError'?'开放数据源连接超时':e.message||'网络错误'}。可使用下方公开检索入口继续复核。`,checkedSources:[],evidenceLinks:scholarlyEvidenceLinks(parsed,parsed.doi)};
       }
