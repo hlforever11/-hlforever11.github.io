@@ -44,8 +44,8 @@
     const TRUSTED_REFERENCE_CACHE=[
       {source:'《图书馆论坛》官网',sourceUrl:'https://tsglt.zslib.com.cn/CN/Y2023/V43/I5/104',title:'ChatGPT类智能对话工具兴起对图书馆行业的机遇与挑战',authors:['李书宁','刘一鸣'],year:2023,container:'图书馆论坛',volume:'43',issue:'5',pages:'104-110',type:'journal-article'},
       {source:'《现代情报》正式题录（DOI）',sourceUrl:'https://doi.org/10.3969/j.issn.1008-0821.2023.04.001',title:'从ChatGPT看生成式AI对情报学研究与实践的影响',authors:['曹树金','曹茹烨'],year:2023,container:'现代情报',volume:'43',issue:'4',pages:'3-10',doi:'10.3969/j.issn.1008-0821.2023.04.001',type:'journal-article'},
-      {source:'OpenAI 官方报告',sourceUrl:'https://cdn.openai.com/better-language-models/language_models_are_unsupervised_multitask_learners.pdf',title:'Language Models are Unsupervised Multitask Learners',authors:['Alec Radford','Jeffrey Wu','Rewon Child','David Luan','Dario Amodei','Ilya Sutskever'],year:2019,container:'OpenAI',volume:'',issue:'',pages:'',type:'report'},
-      {source:'UNESCO 官方文献记录',sourceUrl:'https://unesdoc.unesco.org/ark:/48223/pf0000381137',title:'Recommendation on the Ethics of Artificial Intelligence',authors:['UNESCO'],year:2021,container:'United Nations Educational, Scientific and Cultural Organization',volume:'',issue:'',pages:'',type:'report'},
+      {source:'OpenAI 官方报告',sourceUrl:'https://cdn.openai.com/better-language-models/language_models_are_unsupervised_multitask_learners.pdf',title:'Language Models are Unsupervised Multitask Learners',authors:['Alec Radford','Jeffrey Wu','Rewon Child','David Luan','Dario Amodei','Ilya Sutskever'],year:2019,container:'OpenAI',volume:'',issue:'',pages:'',online:true,type:'report'},
+      {source:'UNESCO 官方文献记录',sourceUrl:'https://unesdoc.unesco.org/ark:/48223/pf0000381137',title:'Recommendation on the Ethics of Artificial Intelligence',authors:['UNESCO'],year:2021,container:'United Nations Educational, Scientific and Cultural Organization',volume:'',issue:'',pages:'',online:true,type:'report'},
       {source:'美国图书馆协会 ACRL 官方报告',sourceUrl:'https://www.ala.org/acrl/publications/whitepapers/presidential',title:'Presidential Committee on Information Literacy: Final Report',authors:['American Library Association'],year:1989,container:'American Library Association',volume:'',issue:'',pages:'',type:'report'},
       {source:'Journal of Information Literacy 官方记录',sourceUrl:'https://journals.cilip.org.uk/jil/article/view/14',title:'Artificial intelligence skills and knowledge in libraries: Experiences and critical impressions from a learning circle',authors:['Karolina Andersdotter'],year:2023,container:'Journal of Information Literacy',volume:'17',issue:'2',pages:'107-130',doi:'10.11645/17.2.14',type:'journal-article'},
       {source:'Taylor & Francis DOI 正式题录',sourceUrl:'https://doi.org/10.1080/1369118X.2024.2382224',title:"Understanding algorithmic recommendations: A qualitative study on children's algorithm literacy in Switzerland",authors:['Julian Ernst'],year:2024,container:'Information, Communication & Society',volume:'28',issue:'11',pages:'1945-1961',doi:'10.1080/1369118X.2024.2382224',type:'journal-article'},
@@ -574,7 +574,7 @@
       if(/book/.test(type))return'M';
       if(/proceedings|conference/.test(type))return'C';
       if(/dissertation|thesis/.test(type))return'D';
-      if(/report|preprint/.test(type))return candidate?.sourceUrl?'R/OL':'R';
+      if(/report|preprint/.test(type))return candidate?.online?'R/OL':'R';
       if(/standard/.test(type))return'S';
       if(/patent/.test(type))return'P';
       if(/newspaper/.test(type))return'N';
@@ -607,20 +607,21 @@
     function gtAuthor(name){
       const value=displayName(name);
       if(/\p{Script=Han}/u.test(value))return value;
+      if(/\b(?:association|organization|university|committee|institute|library|society|department|centre|center|council|academy|ministry)\b/i.test(value))return value;
       const parts=value.replace(/,/g,' ').split(/\s+/).filter(Boolean),family=parts.pop()||'',initials=parts.map(x=>x[0]?.toUpperCase()).filter(Boolean).join(' ');
       return`${family.toUpperCase()}${initials?` ${initials}`:''}`;
     }
     function canonicalCitation(candidate,parsed){
       const names=(candidate.authors||[]).map(gtAuthor).filter(Boolean),hasChinese=names.some(x=>/\p{Script=Han}/u.test(x));
       let authors=names.slice(0,3).join(hasChinese?'，':', ');if(names.length>3)authors+=hasChinese?'，等':', et al.';
-      const candidateType=String(candidate.type||'').toLowerCase(),type=candidateGbType(candidate)||parsed?.type||'J';
+      const candidateType=String(candidate.type||'').toLowerCase();let type=candidateGbType(candidate)||parsed?.type||'J';if(type==='R'&&parsed?.url)type='R/OL';
       const submittedTitle=cleanValue(parsed?.title),verifiedTitle=cleanValue(candidate.title),submittedNorm=normalizeText(submittedTitle),verifiedNorm=normalizeText(verifiedTitle);
       const title=submittedNorm&&verifiedNorm&&submittedNorm.includes(verifiedNorm)?submittedTitle:verifiedTitle;
       const container=cleanValue(candidate.container||parsed?.container),year=candidate.year||parsed?.year,isReport=/report|preprint/.test(candidateType),volume=isReport?'':cleanValue(candidate.volume||parsed?.volume),issue=isReport?'':cleanValue(candidate.issue||parsed?.issue),pages=isReport?'':cleanValue(candidate.pages||parsed?.pages);
       let citation=`${authors?`${authors}. `:''}${title}[${type}]`;
       if(container)citation+=type==='C'?`//${container}`:`. ${container}`;
       if(year)citation+=`${container?', ':'. '}${year}`;
-      if(volume)citation+=`, ${volume}${issue?`(${issue})`:''}`;
+      if(volume)citation+=`, ${volume}${issue?`(${issue})`:''}`;else if(issue)citation+=`(${issue})`;
       if(pages)citation+=`: ${pages}`;
       citation+='.';if(candidate.doi)citation+=` DOI:${candidate.doi}.`;if(candidate.isbn)citation+=` ISBN:${candidate.isbn}.`;if(type.includes('/OL')&&candidate.sourceUrl)citation+=` ${candidate.sourceUrl}.`;
       return citation.replace(/\.\./g,'.');
@@ -648,7 +649,7 @@
       if(parsed.issue&&candidate.issue&&!sameNumberField(parsed.issue,candidate.issue))add('期号',parsed.issue,candidate.issue);
       if(parsed.pages&&candidate.pages&&!same(parsed.pages.replace(/[–—]/g,'-'),candidate.pages.replace(/[–—]/g,'-')))add('页码',parsed.pages,candidate.pages);
       if(parsed.doi&&candidate.doi&&parsed.doi!==candidate.doi)add('DOI',parsed.doi,candidate.doi);
-      const verifiedType=candidateGbType(candidate);if(parsed.type&&verifiedType&&parsed.type!==verifiedType)add('文献类型',`[${parsed.type}]`,`[${verifiedType}]`);
+      let verifiedType=candidateGbType(candidate);if(verifiedType==='R'&&parsed.url)verifiedType='R/OL';if(parsed.type&&verifiedType&&parsed.type!==verifiedType)add('文献类型',`[${parsed.type}]`,`[${verifiedType}]`);
       return out;
     }
     async function verifyOne(reference){
