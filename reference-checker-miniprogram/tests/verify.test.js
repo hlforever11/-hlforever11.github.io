@@ -99,6 +99,69 @@ test("OpenAI 官方来源可确认英文技术报告并修正文献类型", asyn
   assert.match(result.canonical, /cdn\.openai\.com/);
 });
 
+test("UNESCO 伦理建议书可由已核对官方记录确认，不依赖境外页面实时响应", async () => {
+  global.fetch = async () => {
+    throw new Error("已核对记录不应发起外部请求");
+  };
+
+  const result = await verifyReference(
+    "UNESCO. (2021). Recommendation on the ethics of artificial intelligence. United Nations Educational, Scientific and Cultural Organization. https://unesdoc.unesco.org/ark:/48223/pf0000381137"
+  );
+  assert.equal(result.status, "verified");
+  assert.ok(result.confidence >= 0.9);
+  assert.match(result.source, /UNESCO 官方文献记录/);
+  assert.match(result.sourceUrl, /pf0000381137/);
+  assert.match(result.canonical, /\[R\/OL\]/);
+  assert.equal(result.differences.length, 0);
+});
+
+test("权威记录缓存不能替错误网址背书", async () => {
+  dns.lookup = async () => [{ address: "8.8.8.8", family: 4 }];
+  global.fetch = async () => new Response(
+    "<!doctype html><html><head><title>Unrelated page</title></head><body></body></html>",
+    {
+      status: 200,
+      headers: { "content-type": "text/html; charset=utf-8" }
+    }
+  );
+
+  const result = await verifyReference(
+    "UNESCO. (2021). Recommendation on the ethics of artificial intelligence. United Nations Educational, Scientific and Cultural Organization. https://example.com/not-the-unesco-record"
+  );
+  assert.notEqual(result.status, "verified");
+  assert.doesNotMatch(result.source || "", /UNESCO 官方文献记录/);
+});
+
+test("其他 UNESDOC ARK 文献可通过 UNESCO 官方目录核验", async () => {
+  global.fetch = async (input) => {
+    const url = String(input);
+    if (url.includes("data.unesco.org/api/explore")) {
+      return new Response(JSON.stringify({
+        results: [{
+          title: "Guidance for generative AI in education and research",
+          creator: "UNESCO",
+          year: "2023",
+          description: "Published in 2023",
+          url: "https://unesdoc.unesco.org/ark:/48223/pf0000386693",
+          ref_code: "ED-2023/WS/4"
+        }]
+      }), {
+        status: 200,
+        headers: { "content-type": "application/json" }
+      });
+    }
+    throw new Error(`Unexpected URL ${url}`);
+  };
+
+  const result = await verifyReference(
+    "UNESCO. (2023). Guidance for generative AI in education and research. United Nations Educational, Scientific and Cultural Organization. https://unesdoc.unesco.org/ark:/48223/pf0000386693"
+  );
+  assert.equal(result.status, "verified");
+  assert.ok(result.confidence >= 0.9);
+  assert.match(result.source, /UNESCO DataHub/);
+  assert.match(result.canonical, /\[R\/OL\]/);
+});
+
 test("《图书馆论坛》官网索引可确认中文期刊且期号 05 与 5 等价", async () => {
   const result = await verifyReference(
     "李书宁,刘一鸣.ChatGPT类智能对话工具兴起对图书馆行业的机遇与挑战[J].图书馆论坛,2023,43(05):104-110."
