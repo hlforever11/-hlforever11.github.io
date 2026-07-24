@@ -53,6 +53,7 @@ const VERIFIED_REFERENCE_INDEX = [
     volume: "",
     issue: "",
     pages: "",
+    online: true,
     type: "report"
   },
   {
@@ -65,6 +66,7 @@ const VERIFIED_REFERENCE_INDEX = [
     volume: "",
     issue: "",
     pages: "",
+    online: true,
     type: "report"
   },
   {
@@ -1640,6 +1642,9 @@ function displayName(name) {
 function gtAuthor(name) {
   const value = displayName(name);
   if (hasHan(value)) return value;
+  if (/\b(?:association|organization|university|committee|institute|library|society|department|centre|center|council|academy|ministry)\b/i.test(value)) {
+    return value;
+  }
   const parts = value.replace(/,/g, " ").split(/\s+/).filter(Boolean);
   const family = parts.pop() || "";
   const initials = parts.map((part) => part[0]?.toUpperCase()).filter(Boolean).join(" ");
@@ -1657,7 +1662,7 @@ function canonicalCitation(candidate, parsed) {
     : /proceedings|conference/.test(candidateType)
       ? "C"
       : /report/.test(candidateType)
-        ? (candidate.sourceUrl ? "R/OL" : "R")
+        ? (candidate.online || parsed?.url ? "R/OL" : "R")
         : parsed?.type || "J";
   const submittedTitle = cleanValue(parsed?.title);
   const verifiedTitle = cleanValue(candidate.title);
@@ -1676,8 +1681,7 @@ function canonicalCitation(candidate, parsed) {
   let citation = `${authors ? `${authors}. ` : ""}${title}[${type}]`;
   if (container) citation += type === "C" ? `//${container}` : `. ${container}`;
   if (year) citation += `${container ? ", " : ". "}${year}`;
-  if (volume) citation += `, ${volume}${issue ? `(${issue})` : ""}`;
-  if (pages) citation += `: ${pages}`;
+  if (volume) citation += `, ${volume}${issue ? `(${issue})` : ""}`;\n  else if (issue) citation += `(${issue})`;\n  if (pages) citation += `: ${pages}`;
   citation += ".";
   if (candidate.doi) citation += ` DOI:${candidate.doi}.`;
   if (candidate.isbn) citation += ` ISBN:${candidate.isbn}.`;
@@ -1782,7 +1786,7 @@ function academicDifferences(parsed, candidate, metrics) {
     : /proceedings|conference/.test(candidateType)
       ? "C"
       : /report/.test(candidateType)
-        ? (candidate.sourceUrl ? "R/OL" : "R")
+        ? (candidate.online || parsed?.url ? "R/OL" : "R")
         : /article|journal/.test(candidateType)
           ? "J"
           : "";
