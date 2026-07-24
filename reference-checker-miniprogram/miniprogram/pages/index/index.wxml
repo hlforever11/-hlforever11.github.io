@@ -27,7 +27,7 @@
       class="reference-input"
       value="{{inputValue}}"
       maxlength="-1"
-      placeholder="例如：&#10;[1] 作者. 篇名[J]. 刊名, 2024, 12(3):20-28.&#10;[2] Author. (2023). Title. Journal, 8(2), 10–19."
+      placeholder="{{inputPlaceholder}}"
       placeholder-class="input-placeholder"
       bindinput="onInput"
       disabled="{{loading}}"
@@ -35,8 +35,9 @@
 
     <view class="input-actions">
       <view class="counter {{count > maxReferences ? 'counter-over' : ''}}">
+        <text class="counter-label">已识别</text>
         <text class="counter-value">{{count}}</text>
-        <text> / {{maxReferences}}</text>
+        <text class="counter-limit">/ {{maxReferences}} 条</text>
       </view>
       <view class="action-buttons">
         <button class="button-secondary clear-button" bindtap="clearInput" disabled="{{!inputValue || loading}}">清空</button>
