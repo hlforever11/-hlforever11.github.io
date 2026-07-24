@@ -48,7 +48,7 @@
   align-items: center;
   justify-content: space-between;
   gap: 20rpx;
-  margin: -8rpx 4rpx 26rpx;
+  margin: 4rpx 4rpx 30rpx;
   padding: 20rpx 24rpx;
   border: 1rpx solid rgba(169, 157, 139, .52);
   border-radius: 22rpx;
