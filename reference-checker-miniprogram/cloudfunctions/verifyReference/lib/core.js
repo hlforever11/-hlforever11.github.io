@@ -821,6 +821,7 @@ async function queryPubMed(parsed) {
       issue: cleanValue(item.issue),
       pages: cleanValue(item.pages).replace(/[–—]/g, "-"),
       doi: String(doi).toLowerCase(),
+      pmid: parsed.pmid,
       type: "journal-article",
       sourceUrl: `https://pubmed.ncbi.nlm.nih.gov/${parsed.pmid}/`
     }]
@@ -852,6 +853,7 @@ async function queryArxiv(parsed) {
       issue: "",
       pages: "",
       doi: cleanValue(entry.find("arxiv\\:doi, doi").first().text()).toLowerCase(),
+      arxivId: parsed.arxivId,
       type: "report",
       sourceUrl: `https://arxiv.org/abs/${parsed.arxivId}`
     }]
@@ -907,8 +909,17 @@ function providerJob(provider, parsed) {
   throw new Error(`未知核验来源：${provider}`);
 }
 
-function searchSnippetCandidate(parsed, sourceUrl) {
-  const authors = splitSubmittedAuthors(parsed.authors);
+function searchSnippetCandidate(parsed, sourceUrl, evidenceText = "") {
+  const block = normalizeText(evidenceText);
+  const authors = splitSubmittedAuthors(parsed.authors).filter((author) =>
+    block.includes(normalizeText(author))
+  );
+  const container = parsed.container && block.includes(normalizeText(parsed.container))
+    ? parsed.container
+    : "";
+  const year = parsed.year && block.includes(String(parsed.year))
+    ? parsed.year
+    : null;
   return {
     source: "搜索引擎结果摘要",
     sources: ["搜索引擎结果摘要"],
@@ -917,13 +928,13 @@ function searchSnippetCandidate(parsed, sourceUrl) {
     title: parsed.title,
     authors,
     authorKeys: authors.map(authorKey).filter(Boolean),
-    year: parsed.year || null,
-    container: parsed.container || "",
-    volume: parsed.volume || "",
-    issue: parsed.issue || "",
-    pages: parsed.pages || "",
-    doi: parsed.doi || "",
-    type: parsed.type || "",
+    year,
+    container,
+    volume: "",
+    issue: "",
+    pages: "",
+    doi: "",
+    type: "",
     sourceUrl
   };
 }
@@ -955,6 +966,7 @@ async function querySearchEngineEvidence(parsed) {
     parsed.year ? String(parsed.year) : ""
   ].map(normalizeText).filter((value) => value.length >= 2);
   let evidenceUrl = "";
+  let evidenceText = "";
 
   $(".result, .c-container").each((_, element) => {
     if (evidenceUrl) return;
@@ -962,6 +974,7 @@ async function querySearchEngineEvidence(parsed) {
     const block = normalizeText(node.text());
     if (!block.includes(titleKey)) return;
     if (!supportTerms.some((term) => block.includes(term))) return;
+    evidenceText = node.text();
     evidenceUrl = cleanValue(
       node.attr("mu") ||
       node.find("h3 a").first().attr("href") ||
@@ -972,7 +985,9 @@ async function querySearchEngineEvidence(parsed) {
 
   return {
     source: "搜索引擎结果摘要",
-    candidates: evidenceUrl ? [searchSnippetCandidate(parsed, evidenceUrl)] : []
+    candidates: evidenceUrl
+      ? [searchSnippetCandidate(parsed, evidenceUrl, evidenceText)]
+      : []
   };
 }
 
@@ -1168,7 +1183,7 @@ function mergeCandidates(candidates) {
     ])];
     for (const field of [
       "title", "authors", "authorKeys", "year", "container",
-      "volume", "issue", "pages", "doi", "type", "sourceUrl"
+      "volume", "issue", "pages", "doi", "isbn", "pmid", "arxivId", "type", "sourceUrl"
     ]) {
       if (!prior[field] && candidate[field]) prior[field] = candidate[field];
     }
@@ -1187,21 +1202,6 @@ function authorAgreement(parsed, candidate) {
   return Math.min(1, 0.65 + (0.35 * hits) / Math.min(keys.length, 3));
 }
 
-function typeAgreement(submitted, candidate) {
-  if (!submitted || !candidate) return 0.7;
-  const expected = baseReferenceType(submitted);
-  const type = String(candidate).toLowerCase();
-  if (expected === "J") return /article|journal/.test(type) ? 1 : 0;
-  if (expected === "C") return /proceedings|conference|article/.test(type) ? 1 : 0;
-  if (expected === "M") return /book/.test(type) ? 1 : 0;
-  if (expected === "D") return /dissertation|thesis/.test(type) ? 1 : 0;
-  if (expected === "R") return /report|preprint/.test(type) ? 1 : 0;
-  if (expected === "S") return /standard/.test(type) ? 1 : 0;
-  if (expected === "P") return /patent/.test(type) ? 1 : 0;
-  if (expected === "N") return /newspaper/.test(type) ? 1 : 0;
-  return 0.7;
-}
-
 function scoreCandidate(parsed, candidate) {
   const titleScore = parsed.title
     ? diceSimilarity(parsed.title, candidate.title)
@@ -1209,45 +1209,78 @@ function scoreCandidate(parsed, candidate) {
       ? 0.92
       : 0;
   const authorScore = authorAgreement(parsed, candidate);
-  const yearScore = parsed.year && candidate.year
-    ? (parsed.year === candidate.year ? 1 : 0)
-    : 0.5;
   const containerScore = parsed.container && candidate.container
     ? diceSimilarity(parsed.container, candidate.container)
     : 0.5;
-  const typeScore = typeAgreement(parsed.type, candidate.type);
-  const doiScore = parsed.doi && candidate.doi
-    ? (parsed.doi === candidate.doi ? 1 : 0)
-    : 0.5;
+  const identifierPairs = [
+    ["doi", parsed.doi, candidate.doi],
+    ["isbn", parsed.isbn, candidate.isbn],
+    ["pmid", parsed.pmid, candidate.pmid],
+    ["arxiv", parsed.arxivId, candidate.arxivId]
+  ].filter(([, submitted, verified]) => submitted && verified);
+  const exactIdentifiers = identifierPairs.filter(([, submitted, verified]) =>
+    normalizeText(submitted) === normalizeText(verified)
+  );
+  const identifierExact = exactIdentifiers.length > 0;
+  const identifierMismatch = identifierPairs.length > 0 && !identifierExact;
 
   const weights = [];
-  if (parsed.title || candidate.title) weights.push([titleScore, parsed.doi ? 0.49 : 0.68]);
-  if (parsed.authors && candidate.authors?.length) weights.push([authorScore, 0.14]);
-  if (parsed.year && candidate.year) weights.push([yearScore, 0.09]);
-  if (parsed.container && candidate.container) weights.push([containerScore, 0.05]);
-  if (parsed.type && candidate.type) weights.push([typeScore, 0.03]);
-  if (parsed.doi) weights.push([doiScore, 0.2]);
+  if (parsed.title || candidate.title) weights.push([titleScore, 0.62]);
+  if (parsed.authors && candidate.authors?.length) weights.push([authorScore, 0.23]);
+  if (parsed.container && candidate.container) weights.push([containerScore, 0.15]);
 
   let score = weights.reduce((sum, [value, weight]) => sum + value * weight, 0) /
     Math.max(0.01, weights.reduce((sum, [, weight]) => sum + weight, 0));
-  if (
-    parsed.doi === candidate.doi &&
-    candidate.exactDoi &&
-    (!parsed.title || titleScore > 0.72)
+  const authorCorroborates = parsed.authors && candidate.authors?.length &&
+    authorScore >= 0.65;
+  const containerCorroborates = parsed.container && candidate.container &&
+    containerScore >= 0.82;
+  const strongTextIdentity = titleScore >= 0.94 &&
+    (authorCorroborates || containerCorroborates);
+  const hasCorroboration = identifierExact || authorCorroborates || containerCorroborates;
+
+  if (identifierExact && (!parsed.title || titleScore >= 0.72)) {
+    score = Math.max(score, 0.97);
+  } else if (
+    candidate.trustedIndex &&
+    titleScore >= 0.9 &&
+    (authorScore >= 0.55 || containerScore >= 0.7)
   ) {
-    score = Math.max(score, 0.94);
+    score = Math.max(score, 0.96);
+  } else if (strongTextIdentity) {
+    score = Math.max(score, 0.9);
+  } else if (identifierMismatch) {
+    score = Math.min(score, 0.64);
   }
-  if (titleScore < 0.48 && parsed.title) score = Math.min(score, 0.57);
-  if (typeScore === 0 && titleScore < 0.92) score = Math.min(score, 0.67);
+  if (!hasCorroboration && !candidate.trustedIndex) score = Math.min(score, 0.79);
+  if (titleScore < 0.58 && parsed.title) score = Math.min(score, 0.62);
+  if (
+    parsed.authors &&
+    candidate.authors?.length &&
+    authorScore === 0 &&
+    !identifierExact &&
+    titleScore < 0.97
+  ) {
+    score = Math.min(score, 0.66);
+  }
+  if (candidate.evidenceStrength === "search-snippet") score = Math.min(score, 0.9);
+
+  const basis = [];
+  if (identifierExact) basis.push(`标识符一致（${exactIdentifiers.map(([name]) => name.toUpperCase()).join("、")}）`);
+  if (titleScore >= 0.86) basis.push("篇名高度一致");
+  if (authorCorroborates) basis.push("作者信息支持");
+  if (containerCorroborates) basis.push("来源信息支持");
+  if (candidate.trustedIndex) basis.push("权威来源记录");
+  if (candidate.evidenceStrength === "search-snippet") basis.push("搜索结果摘要证据");
 
   return {
-    score: Math.max(0, Math.min(1, score)),
+    score: Math.max(0, Math.min(0.99, score)),
     titleScore,
     authorScore,
-    yearScore,
     containerScore,
-    typeScore,
-    doiScore
+    identifierExact,
+    identifierMismatch,
+    basis
   };
 }
 
@@ -1661,10 +1694,9 @@ async function verifyWebReference(reference, parsed) {
 
     const hasStrongTitle = titleScore !== null && titleScore >= 0.86;
     const supportingAuthor = authorScore === null || authorScore >= 0.5;
-    const supportingDate = dateScore === null || dateScore >= 0.8;
-    const confirmed = hasStrongTitle && supportingAuthor && supportingDate;
+    const confirmed = hasStrongTitle && supportingAuthor;
     let confidence = confirmed
-      ? Math.min(0.98, 0.78 + 0.15 * titleScore + (authorScore ?? 0.5) * 0.04)
+      ? Math.min(0.98, 0.82 + 0.12 * titleScore + (authorScore ?? 0.5) * 0.04)
       : candidate.reachable && hasStrongTitle
         ? 0.8
         : candidate.reachable
@@ -1712,9 +1744,9 @@ async function verifyWebReference(reference, parsed) {
           ? "verified"
           : "review";
     let note = differences.length
-      ? "原始网页与提交信息指向同一内容，但以下字段需要修正。"
+      ? "已确认原始网址指向同一内容；真实性判断不受下列著录差异影响，但建议修正这些字段。"
       : confirmed
-        ? "已读取原始网页，并通过题名、作者或发布日期等核心字段确认。"
+        ? "已读取原始网页，并通过网址、篇名和作者等身份字段确认该文献真实存在。"
         : "已读取原始网页并找到较强匹配，请结合原页面继续复核。";
     if (missing.length && !differences.length) {
       note += ` 页面未提供可自动读取的${missing.join("、")}，相关字段保留原著录。`;
@@ -1726,8 +1758,15 @@ async function verifyWebReference(reference, parsed) {
     return {
       status,
       confidence,
+      authenticityConfidence: confidence,
       submitted: reference,
       differences,
+      accuracyDifferences: differences,
+      authenticityBasis: [
+        "提交网址可以访问",
+        "页面篇名高度一致",
+        ...(authorScore !== null && authorScore >= 0.5 ? ["作者信息支持"] : [])
+      ],
       note,
       canonical: webCanonicalCitation(candidate, parsed),
       sourceUrl: candidate.sourceUrl,
@@ -1816,8 +1855,10 @@ async function verifyAcademicReference(reference, parsed) {
     return {
       status: "review",
       confidence,
+      authenticityConfidence: confidence,
       submitted: reference,
       differences,
+      accuracyDifferences: differences,
       note: `在 ${source} 找到近似记录，但匹配度尚不足以自动确认，请人工复核。`,
       canonical: canonicalCitation(best.candidate, parsed),
       sourceUrl: best.candidate.sourceUrl,
@@ -1838,10 +1879,10 @@ async function verifyAcademicReference(reference, parsed) {
       ? "partial"
       : "verified";
   let note = snippetEvidence
-    ? "已在搜索引擎结果摘要中找到题名及辅助字段一致的记录，可确认文献存在；卷期页等细节仍建议打开来源页复核。"
+    ? "已在搜索引擎结果摘要中找到篇名及其他身份字段一致的记录，可确认文献存在；卷期页、年份和文献类型属于著录准确性问题，仍建议打开来源页复核。"
     : differences.length
-    ? `已在 ${source} 找到同一文献，以下字段与来源记录不一致。`
-    : `已在 ${source} 找到高度一致的记录。`;
+    ? `已在 ${source} 确认该文献真实存在；以下差异不降低真实性置信度，但建议按来源记录修正著录。`
+    : `已在 ${source} 找到身份字段高度一致的记录，可确认该文献真实存在。`;
   if (partialFields.length && !differences.length) {
     note += ` 来源记录未完整提供${partialFields.join("、")}，这些字段暂时保留原著录。`;
   }
@@ -1852,8 +1893,11 @@ async function verifyAcademicReference(reference, parsed) {
   return {
     status,
     confidence,
+    authenticityConfidence: confidence,
     submitted: reference,
     differences,
+    accuracyDifferences: differences,
+    authenticityBasis: best.metrics.basis,
     note,
     canonical: canonicalCitation(best.candidate, parsed),
     sourceUrl: best.candidate.sourceUrl,
