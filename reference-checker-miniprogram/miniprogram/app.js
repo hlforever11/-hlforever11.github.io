@@ -1,6 +1,7 @@
 App({
   globalData: {
-    cloudAvailable: false
+    cloudAvailable: false,
+    envId: "cloud1-d6gtx1retbc8754fa"
   },
 
   onLaunch() {
@@ -10,9 +11,9 @@ App({
     }
 
     wx.cloud.init({
+      env: this.globalData.envId,
       traceUser: true
     });
     this.globalData.cloudAvailable = true;
   }
 });
-
