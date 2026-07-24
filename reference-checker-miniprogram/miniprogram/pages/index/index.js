@@ -24,6 +24,8 @@ const STATUS_META = {
 Page({
   data: {
     inputValue: "",
+    inputPlaceholder:
+      "例如：\n[1] 作者. 篇名[J]. 刊名, 2024, 12(3):20-28.\n[2] Author. (2023). Title. Journal, 8(2), 10–19.",
     count: 0,
     maxReferences: MAX_REFERENCES,
     canVerify: false,
