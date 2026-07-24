@@ -43,6 +43,63 @@
   line-height: 1.8;
 }
 
+.account-strip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20rpx;
+  margin: -8rpx 4rpx 26rpx;
+  padding: 20rpx 24rpx;
+  border: 1rpx solid rgba(169, 157, 139, .52);
+  border-radius: 22rpx;
+  background: rgba(255, 253, 250, .68);
+}
+
+.account-copy {
+  flex: 1;
+  min-width: 0;
+}
+
+.account-title {
+  color: var(--ink);
+  font-size: 24rpx;
+  font-weight: 700;
+}
+
+.account-note {
+  margin-top: 2rpx;
+  color: var(--muted);
+  font-size: 20rpx;
+  line-height: 1.5;
+}
+
+.account-actions {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 8rpx;
+}
+
+.account-button,
+.account-link {
+  flex: none;
+  margin: 0;
+  padding: 0 18rpx;
+  border-radius: 14rpx;
+  font-size: 21rpx;
+  line-height: 58rpx;
+}
+
+.account-button {
+  color: #fff;
+  background: var(--ink);
+}
+
+.account-link {
+  color: var(--muted);
+  background: transparent;
+}
+
 .workspace {
   position: relative;
   overflow: hidden;
@@ -497,6 +554,14 @@
     padding: 28rpx;
   }
 
+  .account-strip {
+    align-items: flex-start;
+  }
+
+  .account-actions {
+    display: block;
+  }
+
   .result-head {
     display: block;
   }
@@ -505,4 +570,3 @@
     margin-top: 8rpx;
   }
 }
-
