@@ -3,7 +3,8 @@ const assert = require("node:assert/strict");
 const dns = require("node:dns").promises;
 const {
   verifyReference,
-  parseReference
+  parseReference,
+  buildVerificationPlan
 } = require("../cloudfunctions/verifyReference/lib/core");
 
 const originalFetch = global.fetch;
@@ -26,6 +27,65 @@ test("可解析 OpenAI Blog 灰色文献的关键字段", () => {
   assert.equal(parsed.pages, "9");
 });
 
+test("按 DOI、ISBN、PMID、arXiv 及不同文献类型选择核验来源", () => {
+  const doi = parseReference(
+    "作者. 论文题名[J]. 期刊, 2024, 1(1):1-8. DOI:10.1000/example."
+  );
+  assert.ok(buildVerificationPlan(doi).includes("doi-registry"));
+
+  const book = parseReference(
+    "作者. 图书题名[M]. 北京: 出版社, 2022. ISBN 978-7-000-00000-0."
+  );
+  assert.equal(book.isbn, "9787000000000");
+  assert.ok(buildVerificationPlan(book).includes("open-library"));
+
+  const pubmed = parseReference(
+    "Author. Medical article[J]. Journal, 2021. PMID: 34567890."
+  );
+  assert.equal(pubmed.pmid, "34567890");
+  assert.ok(buildVerificationPlan(pubmed).includes("pubmed"));
+
+  const preprint = parseReference(
+    "Author. Preprint title[R/OL]. arXiv:2406.14491."
+  );
+  assert.equal(preprint.arxivId, "2406.14491");
+  assert.ok(buildVerificationPlan(preprint).includes("arxiv"));
+
+  const standard = parseReference(
+    "国家标准化管理委员会. 信息技术标准[S]. GB/T 12345-2024."
+  );
+  assert.equal(standard.standardNumber, "GB/T 12345-2024");
+  assert.ok(buildVerificationPlan(standard).includes("search-engine"));
+  assert.ok(!buildVerificationPlan(standard).includes("crossref"));
+
+  const conference = parseReference(
+    "张三.会议论文题名[C]//全国学术会议论文集.北京:出版社,2022:10-20."
+  );
+  assert.ok(buildVerificationPlan(conference).includes("crossref"));
+  assert.ok(buildVerificationPlan(conference).includes("openalex"));
+
+  const dissertation = parseReference(
+    "李四.人工智能研究[D].成都:四川大学,2023."
+  );
+  assert.ok(buildVerificationPlan(dissertation).includes("openalex"));
+
+  const patent = parseReference(
+    "王五.一种知识核验方法[P].中国专利:CN115123456A,2022-09-01."
+  );
+  assert.equal(patent.patentNumber, "CN115123456A");
+  assert.deepEqual(buildVerificationPlan(patent), ["search-engine"]);
+
+  const newspaper = parseReference(
+    "赵六.人工智能赋能图书馆[N].光明日报,2024-01-02(08)."
+  );
+  assert.deepEqual(buildVerificationPlan(newspaper), ["search-engine"]);
+
+  const dataset = parseReference(
+    "机构.开放科学数据集[DB/OL].(2024-01-01)[2024-02-01].https://example.org/data"
+  );
+  assert.deepEqual(buildVerificationPlan(dataset), ["search-engine"]);
+});
+
 test("OpenAI 官方来源可确认英文技术报告并修正文献类型", async () => {
   const result = await verifyReference(
     "RADFORD A, WU J, CHILD R, et al. Language models are unsupervised multitask learners[J]. OpenAI Blog, 2019, 1(8): 9."
@@ -39,7 +99,7 @@ test("OpenAI 官方来源可确认英文技术报告并修正文献类型", asyn
   assert.match(result.canonical, /cdn\.openai\.com/);
 });
 
-test("《图书馆论坛》官网索引可确认中文期刊完整字段", async () => {
+test("《图书馆论坛》官网索引可确认中文期刊且期号 05 与 5 等价", async () => {
   const result = await verifyReference(
     "李书宁,刘一鸣.ChatGPT类智能对话工具兴起对图书馆行业的机遇与挑战[J].图书馆论坛,2023,43(05):104-110."
   );
